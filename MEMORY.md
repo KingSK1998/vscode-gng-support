@@ -412,3 +412,41 @@
     - Updated `docs/execution/task-queue.json`: R2-05 marked `done`.
 - Next roadmap task: **R2-06** (Establish tested compatibility evidence).
 
+## R2-06 Acceptance and Completion Milestone (2026-09-14)
+
+- **R2-06 Completed & Accepted**:
+  - Established tested compatibility evidence architecture conforming to `docs/execution/task-specifications.md#r2-06`, `docs/specs/library-discovery.md`, and `docs/specs/validation.md`:
+    - `CompatibilityLevel`: Enum classifying project compatibility into `TESTED`, `EXPERIMENTAL`, and `UNSUPPORTED`.
+    - `CompatibilityEntry`: Immutable matrix row descriptor containing exact Grails version, Groovy version, JDK version range (17–21), Gradle version (8.12), required dependencies, artifact SHA-256 fingerprints, fixture provenance, and status.
+    - `CompatibilityAssessment`: Evaluation result containing support level, human-readable summary, diagnostic details, and missing dependencies.
+    - `CompatibilityMatrix`: Pinned executable singleton registry supporting evaluations of `GradleModel`, `GrailsProject`, or explicit versions. Pinned combinations for Grails 7.0.0-RC1 (Groovy 4.0.23, JDK 17, Gradle 8.12) and Grails 7.0.0 GA (Groovy 4.0.24, JDK 17, Gradle 8.12).
+    - `compatibility-matrix.json`: Canonical fixture manifest for tested combinations and artifact content fingerprints.
+    - Offline replay verification (`verifyOfflineArtifactFingerprints`) verifying SHA-256 hashes against cached artifacts without network access.
+    - Major version guard: Ensures new Grails 7 minor/patch releases (e.g. 7.9.0, 7.0.99) evaluate as `EXPERIMENTAL` rather than `TESTED` until integration evidence is established.
+    - Legacy / incompatible detection: Flags Grails < 7, Groovy < 4, and JDK < 17 as `UNSUPPORTED`.
+    - Multi-root isolation: Separate workspace roots with version skew evaluate independently without cross-root leakage (`INV-DISC-001`).
+    - Dynamic dependency refresh: Dependency removal or corruption immediately degrades compatibility assessment (`INV-DISC-002`).
+    - Real-resolution integration check: Verifies actual project fixture `test-projects/grails-test-project` against the matrix.
+  - Verification Gates:
+    - Focused suite: `TestedCompatibilitySpec` (7/7 tests passing in 43s):
+      - `R2-06/1`: Runnable matrix exposes pinned real Grails 7/Groovy 4 combinations, exact toolchains, and provenance.
+      - `R2-06/2`: Dependency addition, removal, and change dynamically alter compatibility evaluation.
+      - `R2-06/2`: Multiple project roots with version skew evaluate independently.
+      - `R2-06/2`: Offline replay verifies artifact content fingerprints without network requests.
+      - `R2-06/2`: Real-resolution integration check verifies actual project fixture.
+      - `R2-06/3`: Major version guard: new Grails 7 versions evaluate as EXPERIMENTAL.
+      - `R2-06/3`: Legacy or incompatible runtimes evaluate as UNSUPPORTED.
+    - Regressions:
+      - `GrailsCapabilityAdapterSpec` (7/7 passing)
+      - `GrailsCompletionProviderSpec` (6/6 passing)
+    - Client checks:
+      - `npm run compile && npm run check-types && npm run lint` passed (exit code 0).
+    - Roadmap validation:
+      - `node scripts/roadmap.js validate` passed (38 tasks valid).
+  - Status & Knowledge Base:
+    - Created `docs/specs/compatibility-matrix.md`.
+    - Updated `server/STATUS.md`: R2-06 marked `✅ Passing` (2026-09-14).
+    - Updated `docs/invariants.md`: Registered `CompatibilityMatrix` in §1 Server State Ownership table and updated §3 evidence gaps.
+    - Updated `docs/execution/records/R2-06.md`: Recorded full acceptance evidence with standalone `Acceptance: PASS`.
+    - Updated `docs/execution/task-queue.json`: R2-06 marked `done`.
+- Next roadmap task: **R3-01** (Define shared typed analysis operations).

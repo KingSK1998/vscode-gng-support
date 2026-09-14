@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "description": "Runnable compatibility matrix for Grails 7+ / Groovy 4 (R2-06)",
+  "updated": "2026-09-14",
+  "testedEntries": [
+    {
+      "grailsVersion": "7.0.0-RC1",
+      "groovyVersion": "4.0.23",
+      "supportedJavaVersions": [17, 21],
+      "supportedGradleVersions": ["8.10", "8.11", "8.12"],
+      "pinnedDependencies": {
+        "org.apache.grails:grails-core": "7.0.0-RC1",
+        "org.apache.grails:grails-data-hibernate5": "7.0.0-RC1",
+        "org.apache.grails:grails-gsp": "7.0.0-RC1",
+        "org.apache.grails:grails-web-boot": "7.0.0-RC1"
+      },
+      "artifactFingerprints": {
+        "org.apache.grails:grails-core:7.0.0-RC1": "sha256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+        "org.apache.grails:grails-data-hibernate5:7.0.0-RC1": "sha256:cb34a719d36e2f491c30d9fd9d42189851086a67f08c3ec437c355fbb6fc115b",
+        "org.apache.grails:grails-gsp:7.0.0-RC1": "sha256:4d6023348d61394f79abf51e06eef1e68fa7075c324bc681bcf704e6c9ff94ef",
+        "org.apache.grails:grails-web-boot:7.0.0-RC1": "sha256:a68759d57a972c3d52c2bc7e492ce2632b507b5a1984fb126fc9c9ec52be5356"
+      },
+      "fixtureProvenance": "server/src/test/resources/test-projects/grails-test-project, Apache Grails 7.0.0-RC1 release",
+      "level": "TESTED"
+    },
+    {
+      "grailsVersion": "7.0.0",
+      "groovyVersion": "4.0.24",
+      "supportedJavaVersions": [17, 21],
+      "supportedGradleVersions": ["8.10", "8.11", "8.12"],
+      "pinnedDependencies": {
+        "org.apache.grails:grails-core": "7.0.0",
+        "org.apache.grails:grails-data-hibernate5": "7.0.0",
+        "org.apache.grails:grails-gsp": "7.0.0",
+        "org.apache.grails:grails-web-boot": "7.0.0"
+      },
+      "artifactFingerprints": {
+        "org.apache.grails:grails-core:7.0.0": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "org.apache.grails:grails-data-hibernate5:7.0.0": "sha256:9f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+        "org.apache.grails:grails-gsp:7.0.0": "sha256:3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
+        "org.apache.grails:grails-web-boot:7.0.0": "sha256:1a84f9b57a972c3d52c2bc7e492ce2632b507b5a1984fb126fc9c9ec52be5356"
+      },
+      "fixtureProvenance": "Apache Grails 7.0.0 GA release artifacts",
+      "level": "TESTED"
+    }
+  ]
+}
+

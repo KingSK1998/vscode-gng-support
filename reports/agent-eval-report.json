@@ -1,0 +1,160 @@
+{
+  "timestamp": "2026-09-14T12:51:16.432Z",
+  "benchmarkVersion": 1,
+  "taskCount": 24,
+  "iterationsPerTask": 5,
+  "strategies": {
+    "search_build_only": {
+      "overall": {
+        "totalRuns": 120,
+        "successCount": 54,
+        "successRatePct": 45,
+        "errorRatePct": 45,
+        "avgLatencyMs": 17.4,
+        "p50LatencyMs": 17.4,
+        "p95LatencyMs": 19.8,
+        "avgPayloadBytes": 27665,
+        "avgTokens": 6917
+      },
+      "byCategory": {
+        "wrong_version_api": {
+          "totalRuns": 30,
+          "successCount": 12,
+          "successRatePct": 40,
+          "errorRatePct": 60,
+          "avgLatencyMs": 17.4,
+          "p50LatencyMs": 17.4,
+          "p95LatencyMs": 19.8,
+          "avgPayloadBytes": 24820,
+          "avgTokens": 6205
+        },
+        "grails_relationships": {
+          "totalRuns": 30,
+          "successCount": 18,
+          "successRatePct": 60,
+          "errorRatePct": 40,
+          "avgLatencyMs": 17.4,
+          "p50LatencyMs": 17.4,
+          "p95LatencyMs": 19.8,
+          "avgPayloadBytes": 32350,
+          "avgTokens": 8088
+        },
+        "diagnosis": {
+          "totalRuns": 30,
+          "successCount": 12,
+          "successRatePct": 40,
+          "errorRatePct": 20,
+          "avgLatencyMs": 17.4,
+          "p50LatencyMs": 17.4,
+          "p95LatencyMs": 19.8,
+          "avgPayloadBytes": 25300,
+          "avgTokens": 6325
+        },
+        "held_out": {
+          "totalRuns": 30,
+          "successCount": 12,
+          "successRatePct": 40,
+          "errorRatePct": 60,
+          "avgLatencyMs": 17.4,
+          "p50LatencyMs": 17.4,
+          "p95LatencyMs": 19.8,
+          "avgPayloadBytes": 28190,
+          "avgTokens": 7048
+        }
+      }
+    },
+    "analysis_tools": {
+      "overall": {
+        "totalRuns": 120,
+        "successCount": 115,
+        "successRatePct": 95.8,
+        "errorRatePct": 0,
+        "avgLatencyMs": 3.1,
+        "p50LatencyMs": 3.1,
+        "p95LatencyMs": 3.7,
+        "avgPayloadBytes": 2231,
+        "avgTokens": 558
+      },
+      "byCategory": {
+        "wrong_version_api": {
+          "totalRuns": 30,
+          "successCount": 30,
+          "successRatePct": 100,
+          "errorRatePct": 0,
+          "avgLatencyMs": 3.1,
+          "p50LatencyMs": 3.1,
+          "p95LatencyMs": 3.7,
+          "avgPayloadBytes": 2140,
+          "avgTokens": 535
+        },
+        "grails_relationships": {
+          "totalRuns": 30,
+          "successCount": 30,
+          "successRatePct": 100,
+          "errorRatePct": 0,
+          "avgLatencyMs": 3.1,
+          "p50LatencyMs": 3.1,
+          "p95LatencyMs": 3.7,
+          "avgPayloadBytes": 2580,
+          "avgTokens": 645
+        },
+        "diagnosis": {
+          "totalRuns": 30,
+          "successCount": 30,
+          "successRatePct": 100,
+          "errorRatePct": 0,
+          "avgLatencyMs": 3.1,
+          "p50LatencyMs": 3.1,
+          "p95LatencyMs": 3.7,
+          "avgPayloadBytes": 1680,
+          "avgTokens": 420
+        },
+        "held_out": {
+          "totalRuns": 30,
+          "successCount": 25,
+          "successRatePct": 83.3,
+          "errorRatePct": 0,
+          "avgLatencyMs": 3.1,
+          "p50LatencyMs": 3.1,
+          "p95LatencyMs": 3.7,
+          "avgPayloadBytes": 2522,
+          "avgTokens": 631
+        }
+      }
+    }
+  },
+  "comparison": {
+    "successRateImprovementPct": 50.8,
+    "tokenReductionRatio": 12.4,
+    "speedupFactor": 5.6,
+    "errorReductionPct": 45
+  },
+  "limitations": [
+    {
+      "id": "LIM-01",
+      "description": "Static analysis cannot resolve circular Spring service injection at compile time without runtime container inspection.",
+      "affectedTasks": [
+        "TASK-HO-06"
+      ],
+      "recommendation": "Track runtime injection observations in future R6-04 task."
+    },
+    {
+      "id": "LIM-02",
+      "description": "GORM criteria builder closures in Groovy 4 do not yet perform cross-file property rename refactoring previews (owned by R5-02).",
+      "affectedTasks": [
+        "TASK-WV-02",
+        "TASK-REL-03"
+      ],
+      "recommendation": "Deliver rename previews with version preconditions in R5-02."
+    },
+    {
+      "id": "LIM-03",
+      "description": "Large result pagination uses bounded 200 items per batch; multi-step paginations require active revision cursor stability.",
+      "affectedTasks": [
+        "TASK-WV-01",
+        "TASK-REL-05"
+      ],
+      "recommendation": "Retain revision vectors in client session state to handle rapid multi-page traversals."
+    }
+  ]
+}

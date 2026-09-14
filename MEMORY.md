@@ -524,4 +524,43 @@
     - Updated `docs/execution/task-queue.json`: Marked R3-02 `done`.
 - Next roadmap task: **R3-03** (Evaluate agent tool usefulness).
 
+## R3-03 Acceptance and Completion Milestone (2026-09-14)
+
+- **R3-03 Completed & Accepted**:
+  - Evaluated agent tool usefulness conforming to `docs/execution/task-specifications.md#r3-03`, `docs/product-roadmap.md#evaluate-the-ai-value-instead-of-assuming-it`, and `docs/specs/agent-tools.md`:
+    - Canonical Versioned Benchmark Dataset:
+      - `shared/benchmarks/agent-eval-tasks.json`: 24 versioned tasks across 4 balanced categories:
+        1. `wrong_version_api` (6 tasks): Dynamic GORM finder signatures & parameters, Groovy 4 criteria builder closure delegates, Grails 7 application context bean access vs Grails 2/3 `ApplicationHolder`, GORM `countBy` return types, Jakarta vs Javax Servlet API coordinates, DetachedCriteria return types.
+        2. `grails_relationships` (6 tasks): Action-to-view convention resolution, injected service conventions & transactions, domain `hasMany`/`belongsTo` cascades, custom TagLib tag resolution (`g:` and `app:`), dynamic web scope properties (`params`, `request`, `flash`), configuration key mapping (`application.yml`).
+        3. `diagnosis` (6 tasks): Unclosed syntax errors, unresolved external dependencies, invalid dynamic finder property detection, controller render parameter misspellings (`viwe`/`modle`), invalid configuration tree nesting, memory buffer overlay precedence (`FileContentTracker`).
+        4. `held_out` (6 tasks): `@Validateable` command object injection, GORM `findOrSaveBy*` / `findOrCreateBy*`, namespaced controller view conventions, many-to-many cascading, duplicate action inheritance conflicts, circular Spring service dependencies.
+      - Each task defines unambiguous `queryPrompt`, `expectedResolution`, and `negativeChecks` (forbidden symbols).
+    - Evaluation Harness & Test Suite:
+      - `scripts/evaluate-agent-tools.js`: Automated runner comparing `search_build_only` vs `analysis_tools` across multiple iterations (5 runs per task, 120 total runs per strategy). Measures success rate, error/hallucination rate, latency (avg, p50, p95), payload bytes, token volume, and variability.
+      - `scripts/evaluate-agent-tools.test.js`: Verified dataset validity, comparative improvements, and limitations reporting (3/3 tests pass).
+      - `package.json`: Added `"benchmark:agent-eval": "node scripts/evaluate-agent-tools.js"`.
+    - Empirical Findings & Published Reports:
+      - `reports/agent-eval-report.json`: Machine-readable benchmark report recording metrics and limitation objects.
+      - `docs/reports/agent-eval-findings.md`: Comprehensive findings document.
+      - Measured metrics:
+        - Task Success Rate: **45.0% -> 95.8% (+50.8% improvement)**.
+        - Erroneous / Hallucinated APIs: **45.0% -> 0.0% (-45% reduction)**.
+        - Token Consumption: **12.4x reduction (~6,917 to ~558 tokens/task)**.
+        - Query Latency: **5.6x speedup (17.4 ms to 3.1 ms; p95 3.7 ms)**.
+      - Published concrete limitations:
+        - `LIM-01`: Runtime circular Spring service injection detection (mapped to R6-04).
+        - `LIM-02`: GORM criteria builder rename refactoring preview (mapped to R5-02).
+        - `LIM-03`: Bounded pagination cursor stability (mapped to R3-04).
+  - Verification Gates:
+    - Test Suite: `node --test scripts/evaluate-agent-tools.test.js` passed (3/3, exit 0).
+    - Benchmark Run: `npm run benchmark:agent-eval` passed (exit 0).
+    - Client checks: `npm run compile && npm run check-types && npm run lint` passed (exit 0).
+    - Roadmap Validation: `node scripts/roadmap.js validate` passed (38 tasks valid).
+    - Subagent Review: Approved (`850c90f1-8372-475e-acf4-bd05b46777b5`).
+  - Status & Knowledge Base:
+    - Created `docs/execution/records/R3-03.md`: Recorded full evidence and standalone `Acceptance: PASS`.
+    - Updated `docs/execution/task-queue.json`: Marked R3-03 `done`.
+- Next roadmap task: **R3-04** (Add MCP adapter for stable operations).
+
+
 

@@ -1,0 +1,403 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": 1,
+  "benchmarkName": "Grails 7 / Groovy 4 Agent Tool Evaluation Benchmark",
+  "taskCount": 24,
+  "tasks": [
+    {
+      "id": "TASK-WV-01",
+      "category": "wrong_version_api",
+      "name": "Verify GORM Dynamic Finder Signature & Parameter Order",
+      "heldOut": false,
+      "queryPrompt": "In BookController, what is the exact method signature, parameter types, and return type for searching Books by title and author? Does Book.findByTitleAndAuthor accept named arguments or positional arguments?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "symbol": "findByTitleAndAuthor",
+        "declaringClass": "com.example.Book",
+        "returnType": "com.example.Book",
+        "originKind": "CAPABILITY_ADAPTER",
+        "capability": "GORM",
+        "parameterTypes": ["java.lang.String", "com.example.Author"],
+        "supportsNamedArgsMap": true
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["findByTitleAndAuthor_v2", "searchTitleAuthor"],
+        "forbiddenFrameworks": ["hibernate-native-only"]
+      }
+    },
+    {
+      "id": "TASK-WV-02",
+      "category": "wrong_version_api",
+      "name": "Groovy 4 Closure Delegate Resolution vs Groovy 3",
+      "heldOut": false,
+      "queryPrompt": "What is the closure delegate type for criteria builder closures in Book.createCriteria { ... } under Grails 7 / Groovy 4?",
+      "targetFile": "grails-app/domain/com/example/Book.groovy",
+      "expectedResolution": {
+        "symbol": "createCriteria",
+        "delegateClass": "grails.gorm.CriteriaBuilder",
+        "originKind": "CAPABILITY_ADAPTER",
+        "groovyMajor": 4
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["org.codehaus.groovy.grails.orm.hibernate.CriteriaBuilder"]
+      }
+    },
+    {
+      "id": "TASK-WV-03",
+      "category": "wrong_version_api",
+      "name": "Grails 7 Application Context Bean Access vs Grails 2/3",
+      "heldOut": false,
+      "queryPrompt": "How should an injected grailsApplication access spring beans in Grails 7? Is getMainContext() supported?",
+      "targetFile": "grails-app/services/com/example/BookService.groovy",
+      "expectedResolution": {
+        "symbol": "grailsApplication",
+        "validBeanAccess": "grailsApplication.mainContext.getBean(name) or applicationContext",
+        "getMainContextDeprecated": true
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["ApplicationHolder.getApplication()"]
+      }
+    },
+    {
+      "id": "TASK-WV-04",
+      "category": "wrong_version_api",
+      "name": "GORM countBy Multiple Properties Return Type",
+      "heldOut": false,
+      "queryPrompt": "What does Book.countByPublishedAndPriceGreaterThan(boolean published, BigDecimal price) return?",
+      "targetFile": "grails-app/domain/com/example/Book.groovy",
+      "expectedResolution": {
+        "symbol": "countByPublishedAndPriceGreaterThan",
+        "returnType": "java.lang.Number",
+        "originKind": "CAPABILITY_ADAPTER"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["List<Book>", "int primitive only"]
+      }
+    },
+    {
+      "id": "TASK-WV-05",
+      "category": "wrong_version_api",
+      "name": "Jakarta Servlet API Coordinates in Grails 7",
+      "heldOut": false,
+      "queryPrompt": "Which servlet package does Grails 7 request object implement: javax.servlet or jakarta.servlet?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "symbol": "request",
+        "servletNamespace": "jakarta.servlet.http.HttpServletRequest",
+        "grailsVersion": "7.0.0-RC1"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["javax.servlet.http.HttpServletRequest"]
+      }
+    },
+    {
+      "id": "TASK-WV-06",
+      "category": "wrong_version_api",
+      "name": "GORM where Query DetachedCriteria Resolution",
+      "heldOut": false,
+      "queryPrompt": "What is the return type of Book.where { title == 'Groovy' } in GORM?",
+      "targetFile": "grails-app/domain/com/example/Book.groovy",
+      "expectedResolution": {
+        "symbol": "where",
+        "returnType": "grails.gorm.DetachedCriteria<com.example.Book>",
+        "originKind": "CAPABILITY_ADAPTER"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["java.util.List", "java.sql.ResultSet"]
+      }
+    },
+    {
+      "id": "TASK-REL-01",
+      "category": "grails_relationships",
+      "name": "Controller Action to Default GSP View Relationship",
+      "heldOut": false,
+      "queryPrompt": "For BookController.show() action without an explicit render call, which view file is rendered by convention?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "controller": "BookController",
+        "action": "show",
+        "conventionView": "grails-app/views/book/show.gsp",
+        "relationshipKind": "ACTION_TO_VIEW"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["grails-app/views/bookController/show.gsp", "grails-app/views/Book/show.jsp"]
+      }
+    },
+    {
+      "id": "TASK-REL-02",
+      "category": "grails_relationships",
+      "name": "Controller to Injected Service Dependency",
+      "heldOut": false,
+      "queryPrompt": "In BookController, where does the property bookService resolve from, and what is its transaction management type?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "symbol": "bookService",
+        "serviceClass": "com.example.BookService",
+        "injected": true,
+        "transactional": true,
+        "originKind": "CAPABILITY_ADAPTER"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["new BookService()", "unmanaged bean"]
+      }
+    },
+    {
+      "id": "TASK-REL-03",
+      "category": "grails_relationships",
+      "name": "Domain Class Association Navigation",
+      "heldOut": false,
+      "queryPrompt": "What entities are associated with Book via hasMany, and what is the owning relationship?",
+      "targetFile": "grails-app/domain/com/example/Book.groovy",
+      "expectedResolution": {
+        "domainClass": "com.example.Book",
+        "associationProperty": "authors",
+        "associatedType": "com.example.Author",
+        "relationshipKind": "HAS_MANY"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["belongsTo = [Book] only"]
+      }
+    },
+    {
+      "id": "TASK-REL-04",
+      "category": "grails_relationships",
+      "name": "Custom TagLib Tag Resolution",
+      "heldOut": false,
+      "queryPrompt": "In grails-app/views/book/index.gsp, which TagLib file declares the <g:formatDate> and custom <app:rating> tags?",
+      "targetFile": "grails-app/views/book/index.gsp",
+      "expectedResolution": {
+        "standardNamespace": "g",
+        "customNamespace": "app",
+        "originKind": "CAPABILITY_ADAPTER",
+        "tagLibArtifact": "TagLib"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["JSP Standard Tag Library"]
+      }
+    },
+    {
+      "id": "TASK-REL-05",
+      "category": "grails_relationships",
+      "name": "Controller Dynamic Web Scope Properties",
+      "heldOut": false,
+      "queryPrompt": "What web scope properties are automatically injected into BookController by Grails?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "properties": ["params", "request", "response", "session", "flash", "actionName", "controllerName"],
+        "originKind": "CAPABILITY_ADAPTER"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["httpRequest", "pageContext"]
+      }
+    },
+    {
+      "id": "TASK-REL-06",
+      "category": "grails_relationships",
+      "name": "Configuration Key Resolution to application.yml",
+      "heldOut": false,
+      "queryPrompt": "Where does grailsApplication.config.dataSource.url resolve in the project configuration files?",
+      "targetFile": "grails-app/conf/application.yml",
+      "expectedResolution": {
+        "configPath": "dataSource.url",
+        "configFile": "grails-app/conf/application.yml",
+        "capability": "GrailsConfig"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Config.groovy (Grails 2 legacy)"]
+      }
+    },
+    {
+      "id": "TASK-DIAG-01",
+      "category": "diagnosis",
+      "name": "Identify Unclosed Block Syntax Error",
+      "heldOut": false,
+      "queryPrompt": "Explain why BookController has a compilation diagnostic at line 18.",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "diagnosticSeverity": "Error",
+        "diagnosticSource": "GrailsCompiler",
+        "diagnosticCategory": "SYNTAX",
+        "line": 18
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Runtime NullPointerException"]
+      }
+    },
+    {
+      "id": "TASK-DIAG-02",
+      "category": "diagnosis",
+      "name": "Diagnose Unresolved Import / Missing Dependency",
+      "heldOut": false,
+      "queryPrompt": "BookService contains import org.apache.commons.math3.util.FastMath. Why is this failing diagnostics?",
+      "targetFile": "grails-app/services/com/example/BookService.groovy",
+      "expectedResolution": {
+        "diagnosticSeverity": "Error",
+        "unresolvedClass": "org.apache.commons.math3.util.FastMath",
+        "cause": "Dependency missing from build.gradle dependencies block"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Groovy runtime syntax bug"]
+      }
+    },
+    {
+      "id": "TASK-DIAG-03",
+      "category": "diagnosis",
+      "name": "Diagnose Invalid GORM Dynamic Finder Property",
+      "heldOut": false,
+      "queryPrompt": "Why does Book.findByIsbnNumber('123') produce an error or warning in BookController?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "invalidProperty": "isbnNumber",
+        "actualDomainProperties": ["title", "author", "price", "published", "isbn"],
+        "suggestion": "findByIsbn"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["GORM does not support findBy"]
+      }
+    },
+    {
+      "id": "TASK-DIAG-04",
+      "category": "diagnosis",
+      "name": "Diagnose Render Parameter Misspelling in Controller",
+      "heldOut": false,
+      "queryPrompt": "In BookController, line 25 has render(viwe: 'show', modle: [book: b]). What is wrong with these named parameters?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "validParameters": ["view", "model"],
+        "invalidParameters": ["viwe", "modle"],
+        "originKind": "CAPABILITY_ADAPTER"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["view and model are forbidden"]
+      }
+    },
+    {
+      "id": "TASK-DIAG-05",
+      "category": "diagnosis",
+      "name": "Diagnose application.yml Invalid Nesting",
+      "heldOut": false,
+      "queryPrompt": "application.yml has dbCreate under server rather than dataSource. What is the impact?",
+      "targetFile": "grails-app/conf/application.yml",
+      "expectedResolution": {
+        "correctPath": "dataSource.dbCreate",
+        "incorrectPath": "server.dbCreate",
+        "severity": "Warning"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["dbCreate belongs to server"]
+      }
+    },
+    {
+      "id": "TASK-DIAG-06",
+      "category": "diagnosis",
+      "name": "Differentiate Unsaved Buffer Overlay from Disk Diagnostics",
+      "heldOut": false,
+      "queryPrompt": "A developer fixed a typo in memory in BookController.groovy without saving to disk. Does project diagnostics reflect the memory overlay or disk state?",
+      "targetFile": "grails-app/controllers/com/example/BookController.groovy",
+      "expectedResolution": {
+        "overlayPrecedence": true,
+        "sourceOfTruth": "FileContentTracker in-memory buffer overlay",
+        "freshness": "current"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Only disk files are analyzed"]
+      }
+    },
+    {
+      "id": "TASK-HO-01",
+      "category": "held_out",
+      "name": "Held-Out: Validateable Command Object Method Resolution",
+      "heldOut": true,
+      "queryPrompt": "In BookCommand (annotated with @Validateable), what methods does Grails inject for error checking and validation?",
+      "targetFile": "src/main/groovy/com/example/BookCommand.groovy",
+      "expectedResolution": {
+        "injectedMethods": ["validate", "hasErrors", "getErrors", "clearErrors"],
+        "originKind": "CAPABILITY_ADAPTER",
+        "capability": "GrailsInjection"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["CommandObjectInterface legacy Grails 2"]
+      }
+    },
+    {
+      "id": "TASK-HO-02",
+      "category": "held_out",
+      "name": "Held-Out: GORM findOrSaveBy vs Non-existent findOrCreateBy",
+      "heldOut": true,
+      "queryPrompt": "Does GORM in Grails 7 provide Book.findOrCreateByTitle('Groovy') or Book.findOrSaveByTitle('Groovy')?",
+      "targetFile": "grails-app/domain/com/example/Book.groovy",
+      "expectedResolution": {
+        "supportedMethod": "findOrSaveByTitle",
+        "alsoSupported": "findOrCreateByTitle",
+        "originKind": "CAPABILITY_ADAPTER"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Only save() exists"]
+      }
+    },
+    {
+      "id": "TASK-HO-03",
+      "category": "held_out",
+      "name": "Held-Out: Namespaced Controller View Convention",
+      "heldOut": true,
+      "queryPrompt": "For ApiBookController with static namespace = 'api/v1', which view template is resolved for render(template: 'summary')?",
+      "targetFile": "grails-app/controllers/com/example/api/v1/ApiBookController.groovy",
+      "expectedResolution": {
+        "templateConvention": "grails-app/views/api/v1/apiBook/_summary.gsp",
+        "relationshipKind": "ACTION_TO_VIEW"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["grails-app/views/_summary.gsp"]
+      }
+    },
+    {
+      "id": "TASK-HO-04",
+      "category": "held_out",
+      "name": "Held-Out: Many-to-Many Association Cascade Deletion",
+      "heldOut": true,
+      "queryPrompt": "Given Book hasMany = [categories: Category] and Category belongsTo = Book, what cascade behavior occurs on Book.delete()?",
+      "targetFile": "grails-app/domain/com/example/Book.groovy",
+      "expectedResolution": {
+        "owner": "Book",
+        "owned": "Category",
+        "cascadeDelete": true,
+        "relationshipKind": "BELONGS_TO"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Category deletes Book"]
+      }
+    },
+    {
+      "id": "TASK-HO-05",
+      "category": "held_out",
+      "name": "Held-Out: Diagnose Duplicate Action in Subclass Controller",
+      "heldOut": true,
+      "queryPrompt": "Why does AdvancedBookController generate a compile error when declaring def index() if SuperController already declared def index() without override?",
+      "targetFile": "grails-app/controllers/com/example/AdvancedBookController.groovy",
+      "expectedResolution": {
+        "diagnosticSeverity": "Error",
+        "cause": "Duplicate action or method signature conflict in controller hierarchy"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Controllers cannot extend classes"]
+      }
+    },
+    {
+      "id": "TASK-HO-06",
+      "category": "held_out",
+      "name": "Held-Out: Trace Circular Spring Dependency between Services",
+      "heldOut": true,
+      "queryPrompt": "BookService injects AuthorService, and AuthorService injects BookService. What diagnostic or initialization issue occurs?",
+      "targetFile": "grails-app/services/com/example/BookService.groovy",
+      "expectedResolution": {
+        "issue": "BeanCurrentlyInCreationException or circular dependency",
+        "serviceA": "BookService",
+        "serviceB": "AuthorService"
+      },
+      "negativeChecks": {
+        "forbiddenSymbols": ["Services cannot inject other services"]
+      }
+    }
+  ]
+}
+

@@ -562,5 +562,36 @@
     - Updated `docs/execution/task-queue.json`: Marked R3-03 `done`.
 - Next roadmap task: **R3-04** (Add MCP adapter for stable operations).
 
+## R3-04 Acceptance and Completion Milestone (2026-09-14)
+
+- **R3-04 Completed & Accepted**:
+  - Added Model Context Protocol (MCP, 2024-11-05) server adapter conforming to `docs/execution/task-specifications.md#r3-04`, `docs/specs/agent-tools.md`, and `docs/invariants.md` (`INV-TOOL-001`, `INV-TOOL-002`, `INV-TOOL-003`):
+    - Core Implementation:
+      - `client/src/mcp/GrailsMcpServer.ts`: JSON-RPC 2.0 streaming adapter over standard readable/writable streams (stdio / duplex).
+      - Reuses existing backend LSP analysis commands (`grails.analysis.*`) without duplicating project models or AST indexes (`INV-TOOL-001`).
+      - Exposes 4 canonical tools: `grails_project_capabilities`, `grails_symbols_search`, `grails_symbols_explain`, and `grails_project_diagnostics`.
+      - Declares explicit `clientMode: "diskFacts"` and `unsavedEditorBuffersAvailable: false` in tool execution results, informing external clients that operations query committed disk state and do not see unsaved editor overlays (`INV-TOOL-003`).
+      - Enforces parameter clamping: `limit` capped at 200 (search) or 500 (diagnostics); `maxPayloadBytes` clamped between 1 KB and 256 KB.
+      - Supports cancellation tokens via `notifications/cancelled` notification, aborting in-flight operations cleanly.
+      - Enforces strict boundary validation on tool arguments (requiring valid `file://` schemes for all URIs).
+      - Emits standard JSON-RPC 2.0 error codes (`-32700` Parse error, `-32600` Invalid request, `-32601` Method not found, `-32602` Invalid params, `-32603` Internal error).
+      - Handles backend `CURSOR_EXPIRED` errors on revision mismatch.
+      - Cleans up all pending request controllers and disposes resources on EOF/disconnect.
+      - `client/src/mcp/index.ts`: Standalone CLI executable entry point connecting over stdio or socket-backed backend.
+      - `package.json`: Added `"mcp:server": "node client/out/mcp/index.js"`.
+    - Verification Gates & Test Suite:
+      - `client/src/test/grailsMcpServer.unit.test.ts`: 4 comprehensive unit tests exercising full lifecycle, tools/list, all 4 tools/call operations, parameter capping, cancellation, boundary validation, stale cursor handling, graceful shutdown, and disconnect EOF cleanup.
+      - Client test suite: `npm run test:client` passed (18/18 tests pass).
+      - Client quality gates: `npm run compile && npm run check-types && npm run lint` passed (0 errors, 0 warnings).
+      - Server tests: `./gradlew test --tests "*WorkspaceAnalysisOperationsSpec*"` passed (4/4 tests pass).
+      - CLI smoke test: verified over stdio pipe for JSON-RPC ping and shutdown.
+      - Roadmap validation: `node scripts/roadmap.js validate` passed (38 tasks valid).
+      - Subagent Review: Approved (`d2b45db6-b6e6-4d74-b575-07263126057a`).
+    - Status & Knowledge Base:
+      - Updated `client/STATUS.md`: Marked R3-04 `✅ Done & Working`.
+      - Completed `docs/execution/records/R3-04.md`: Recorded full evidence and standalone `Acceptance: PASS`.
+      - Updated `docs/execution/task-queue.json`: Marked R3-04 `done`.
+- Next roadmap task: **R4-01** (Align language feature resolution).
+
 
 

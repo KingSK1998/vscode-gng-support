@@ -213,13 +213,13 @@
     {
       "id": "R3-04",
       "title": "Add MCP adapter for stable operations",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R3-03"
       ],
       "spec": "docs/execution/task-specifications.md#r3-04",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R3-04.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-01",

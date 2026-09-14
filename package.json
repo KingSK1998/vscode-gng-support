@@ -804,6 +804,7 @@
     "test:smoke": "node scripts/smoke-server.js",
     "benchmark:perf": "node scripts/run-benchmarks.js",
     "benchmark:agent-eval": "node scripts/evaluate-agent-tools.js",
+    "mcp:server": "node client/out/mcp/index.js",
     "package": "vsce package --out vscode-gng-support.vsix",
     "vscode:prepublish": "npm run build",
     "graphify": "graphify .",

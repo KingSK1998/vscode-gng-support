@@ -70,7 +70,16 @@ class GrailsLanguageServer implements LanguageServer, LanguageClientAware {
             codeActionProvider = new CodeActionOptions([CodeActionKind.QuickFix, CodeActionKind.Refactor])
             codeLensProvider = new CodeLensOptions(true)
             renameProvider = new RenameOptions(false)
-            executeCommandProvider = new ExecuteCommandOptions(["grails.getDependencyGraph", "grails.getGormSql", "grails.discoverTests", "grails.discoverTestsBatch"])
+            executeCommandProvider = new ExecuteCommandOptions([
+                "grails.getDependencyGraph",
+                "grails.getGormSql",
+                "grails.discoverTests",
+                "grails.discoverTestsBatch",
+                "grails.analysis.projectCapabilities",
+                "grails.analysis.symbolSearch",
+                "grails.analysis.symbolExplain",
+                "grails.analysis.projectDiagnostics"
+            ])
             inlayHintProvider = new InlayHintRegistrationOptions().tap {
                 resolveProvider = false
             }

@@ -20,6 +20,7 @@
 
 | Feature | Notes |
 |---|---|
+| VS Code agent reads & Language Model Tools (R3-02) | ✅ `AnalysisToolService` registering 4 language model tools (`grails_project_capabilities`, `grails_symbols_search`, `grails_symbols_explain`, `grails_project_diagnostics`), 4 editor commands (`grails.analysis.*`), bounds capping, trust/scope validation (`INV-TOOL-001/003`), constructor injection (`INV-OWN-003`). 14 client unit tests passing. |
 | Analysis operations protocol types | `client/src/shared/protocol/analysis.ts` matching JSON schema (R3-01) |
 | Groovy syntax highlighting | TextMate grammar |
 | GSP syntax highlighting | TextMate grammar |

@@ -490,3 +490,38 @@
       - Updated `docs/execution/task-queue.json`: R3-01 marked `done`.
 - Next roadmap task: **R3-02** (Expose first VS Code agent reads).
 
+## R3-02 Acceptance and Completion Milestone (2026-09-14)
+
+- **R3-02 Completed & Accepted**:
+  - Exposed first VS Code agent reads conforming to `docs/execution/task-specifications.md#r3-02`, `docs/specs/agent-tools.md`, and `docs/invariants.md`:
+    - VS Code Language Model Tools & Manifest:
+      - `package.json`: Registered 4 `languageModelTools` contributions (`grails_project_capabilities`, `grails_symbols_search`, `grails_symbols_explain`, `grails_project_diagnostics`) with input JSON schemas.
+      - Registered 4 editor commands (`grails.analysis.getCapabilities`, `grails.analysis.searchSymbols`, `grails.analysis.explainSymbol`, `grails.analysis.getDiagnostics`).
+    - Client Implementation:
+      - `AnalysisToolService.ts`: Service managing typed Grails analysis operations and Language Model Tool registrations via `vscode.lm.registerTool`.
+      - Strict conformance to `INV-OWN-003`: Constructor injection only; no `ServiceContainer` passed to service classes.
+      - Conformance to `INV-TOOL-001` and `INV-TOOL-002`: Tools and editor commands share identical typed analysis operations and in-memory snapshots without secondary competing indexes or build/app execution.
+      - Conformance to `INV-TOOL-003`: Validates workspace trust (`vscode.workspace.isTrusted`), open workspace bounds (`vscode.workspace.getWorkspaceFolder`), input objects, and caps queries/payloads (limit capped to 200, maxPayloadBytes capped to 262144, diagnostics limit capped to 500).
+      - `AnalysisCommands.ts`: Thin command handlers and UseCases (`GetCapabilitiesUseCase`, `SearchSymbolsUseCase`, `ExplainSymbolUseCase`, `GetDiagnosticsUseCase`) delegating to `AnalysisToolService` for deterministic IDE use without an AI model.
+      - Container & Lifecycle: Wired into `ServiceRegistry.ts`, `ServiceContainer.ts`, `ActivationManager.ts`, and `commands/index.ts`.
+    - Server Implementation:
+      - `GrailsLanguageServer.groovy`: Registered 4 command identifiers in `executeCommandProvider`: `"grails.analysis.projectCapabilities"`, `"grails.analysis.symbolSearch"`, `"grails.analysis.symbolExplain"`, `"grails.analysis.projectDiagnostics"`. Removed duplicate dead-code registration.
+      - `GrailsWorkspaceService.groovy`: Added dispatch branches in `executeCommand` handling Map and JsonObject payloads, converting missing/empty arguments to typed `AnalysisErrorResponse(INVALID_INPUT)`, catching `AnalysisOperationException` and converting to typed error envelopes (`e.toResponse()`), preventing unhandled RPC exceptions.
+      - `AnalysisErrorResponse.groovy` & `AnalysisOperationException.groovy`: Added default constructor and `getErrorResponse()` getter alias for `@CompileStatic` compatibility.
+  - Verification Gates:
+    - Client Verification:
+      - `npm run compile && npm run check-types && npm run lint` passed (0 warnings/errors).
+      - `npm run test:client`: 14/14 tests passing (7 R3-02 tests verifying registration/disposal lifecycle, parameter capping, untrusted workspace rejection, out-of-scope URI rejection, null request rejection, server error mapping, and disposed service rejection).
+    - Server Verification:
+      - `gradlew.bat test --tests *WorkspaceAnalysisOperationsSpec*`: 4/4 tests passing in 6s (verifying Map/JsonObject handling, symbol search/explain, diagnostics, and typed error responses).
+      - `gradlew.bat test --tests *SharedAnalysisOperationsSpec*`: 9/9 regression tests passing.
+    - Roadmap Validation:
+      - `node scripts/roadmap.js validate`: Passed (38 tasks valid; prerequisites, specs, and acceptance records checked).
+  - Status & Knowledge Base:
+    - Updated `client/STATUS.md`: Marked R3-02 `✅ Passing`.
+    - Updated `server/STATUS.md`: Marked R3-02 `✅ Passing`.
+    - Created and completed `docs/execution/records/R3-02.md`: Recorded full evidence and standalone `Acceptance: PASS`.
+    - Updated `docs/execution/task-queue.json`: Marked R3-02 `done`.
+- Next roadmap task: **R3-03** (Evaluate agent tool usefulness).
+
+

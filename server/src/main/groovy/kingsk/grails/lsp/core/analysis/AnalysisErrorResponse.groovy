@@ -9,6 +9,8 @@ class AnalysisErrorResponse implements Serializable {
     AnalysisErrorCode code
     String details
 
+    AnalysisErrorResponse() {}
+
     AnalysisErrorResponse(String error, AnalysisErrorCode code, String details = null) {
         this.error = error
         this.code = code

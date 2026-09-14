@@ -1,4 +1,5 @@
 import type { ExtensionContext } from "vscode";
+import { AnalysisToolService } from "../../services/analysis/AnalysisToolService";
 import { ArtifactService } from "../../services/artifacts/ArtifactService";
 import { DebugService } from "../../services/debugging/DebugService";
 import { ErrorService } from "../../services/errors/ErrorService";
@@ -151,6 +152,11 @@ export class ServiceContainer {
     return this.getLazyService("GrailsTestService");
   }
 
+  /** Get AnalysisToolService - lazy initialized */
+  get analysisToolService(): AnalysisToolService {
+    return this.getLazyService("AnalysisToolService");
+  }
+
   /* ================= GENERIC ACCESS (for special cases) ============ */
 
   get<K extends ServiceName>(name: K): ServiceRegistry[K] {
@@ -271,6 +277,16 @@ export class ServiceContainer {
           this._services.ErrorService!,
           this.languageServerManager,
           this.projectService
+        )
+    );
+
+    this._lazyInitializers.set(
+      "AnalysisToolService",
+      () =>
+        new AnalysisToolService(
+          this.languageServerManager,
+          this._services.ErrorService!,
+          this._services.ConfigurationService!
         )
     );
   }

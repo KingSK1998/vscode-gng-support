@@ -65,6 +65,10 @@ export class ActivationManager implements Disposable {
       // 1. Register commands first
       this.commands.registerAllCommands();
 
+      // Register language model tools (if supported by environment)
+      const lmToolsDisposable = this.container.analysisToolService.registerLanguageModelTools();
+      this.disposables.push(lmToolsDisposable);
+
       // 2. Setup event listeners
       this.setupEventListeners();
 

@@ -1,10 +1,19 @@
 package kingsk.grails.lsp.services
 
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import kingsk.grails.lsp.GrailsService
 import kingsk.grails.lsp.context.ProjectContextImpl
+import kingsk.grails.lsp.core.analysis.AnalysisErrorCode
+import kingsk.grails.lsp.core.analysis.AnalysisErrorResponse
+import kingsk.grails.lsp.core.analysis.AnalysisOperationException
+import kingsk.grails.lsp.core.analysis.ProjectCapabilitiesRequest
+import kingsk.grails.lsp.core.analysis.ProjectDiagnosticsRequest
+import kingsk.grails.lsp.core.analysis.SymbolExplainRequest
+import kingsk.grails.lsp.core.analysis.SymbolSearchRequest
 import kingsk.grails.lsp.model.enums.ErrorSeverity
 import kingsk.grails.lsp.model.enums.ErrorSource
 import kingsk.grails.lsp.model.state.ProjectState
@@ -17,7 +26,9 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.Collections
 import java.util.HashSet
+import java.util.Map
 import java.util.Set
 
 @Slf4j
@@ -170,8 +181,134 @@ class GrailsWorkspaceService implements WorkspaceService {
                     return CompletableFuture.completedFuture((Object) grailsService.testDiscoveryProvider.discoverTests(params.arguments[0] as String))
                 }
                 break
+            case "grails.analysis.projectCapabilities":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    ProjectCapabilitiesRequest req = new ProjectCapabilitiesRequest(
+                        projectUri: argMap.projectUri as String,
+                        sourceSet: argMap.sourceSet as String
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeProjectCapabilities(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during projectCapabilities",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.analysis.symbolSearch":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    SymbolSearchRequest req = new SymbolSearchRequest(
+                        projectUri: argMap.projectUri as String,
+                        query: argMap.query as String,
+                        uri: argMap.uri as String,
+                        sourceSet: argMap.sourceSet as String,
+                        kinds: argMap.kinds != null ? ((List) argMap.kinds).collect { it.toString() } : null,
+                        limit: argMap.limit != null ? ((Number) argMap.limit).intValue() : null,
+                        maxPayloadBytes: argMap.maxPayloadBytes != null ? ((Number) argMap.maxPayloadBytes).intValue() : null,
+                        cursor: argMap.cursor as String
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeSymbolSearch(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during symbolSearch",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.analysis.symbolExplain":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    SymbolExplainRequest req = new SymbolExplainRequest(
+                        projectUri: argMap.projectUri as String,
+                        documentUri: argMap.documentUri as String,
+                        symbolName: argMap.symbolName as String,
+                        line: argMap.line != null ? ((Number) argMap.line).intValue() : null,
+                        character: argMap.character != null ? ((Number) argMap.character).intValue() : null
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeSymbolExplain(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during symbolExplain",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.analysis.projectDiagnostics":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    ProjectDiagnosticsRequest req = new ProjectDiagnosticsRequest(
+                        projectUri: argMap.projectUri as String,
+                        documentUri: argMap.documentUri as String,
+                        severity: argMap.severity as String,
+                        limit: argMap.limit != null ? ((Number) argMap.limit).intValue() : null
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeProjectDiagnostics(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during projectDiagnostics",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
         }
         return CompletableFuture.completedFuture(null)
+    }
+
+    private static Map parseArgumentToMap(Object raw) {
+        if (raw == null) {
+            return Collections.emptyMap()
+        }
+        if (raw instanceof Map) {
+            return (Map) raw
+        }
+        if (raw instanceof JsonElement) {
+            return (Map) new JsonSlurper().parseText(raw.toString())
+        }
+        if (raw instanceof CharSequence) {
+            String text = raw.toString().trim()
+            if (text.startsWith("{")) {
+                return (Map) new JsonSlurper().parseText(text)
+            }
+        }
+        return Collections.emptyMap()
     }
 
     static boolean isBuildConfigurationFile(String uri) {

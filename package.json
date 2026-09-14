@@ -218,6 +218,26 @@
         "command": "grails.openDashboard",
         "title": "Open Project Dashboard",
         "category": "Grails"
+      },
+      {
+        "command": "grails.analysis.getCapabilities",
+        "title": "Get Project Capabilities",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.analysis.searchSymbols",
+        "title": "Search Symbols",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.analysis.explainSymbol",
+        "title": "Explain Symbol",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.analysis.getDiagnostics",
+        "title": "Get Project Diagnostics",
+        "category": "Grails Analysis"
       }
     ],
     "configuration": [
@@ -603,6 +623,151 @@
       {
         "language": "gsp",
         "path": "./resources/snippets/gsp.json"
+      }
+    ],
+    "languageModelTools": [
+      {
+        "name": "grails_project_capabilities",
+        "displayName": "Grails Project Capabilities",
+        "description": "Inspect capabilities and supported operations of a Grails project.",
+        "modelDescription": "Inspect Grails project capabilities, framework version, toolchain, and supported operations for a workspace project.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "Canonical URI of the project root"
+            },
+            "sourceSet": {
+              "type": "string",
+              "description": "Optional source set scope (main, test)"
+            }
+          },
+          "required": [
+            "projectUri"
+          ]
+        }
+      },
+      {
+        "name": "grails_symbols_search",
+        "displayName": "Grails Symbols Search",
+        "description": "Search symbols across a Grails project.",
+        "modelDescription": "Search declarations and symbols in a Grails project with origin kinds and provenance.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "Canonical URI of the project root"
+            },
+            "query": {
+              "type": "string",
+              "description": "Query string or regex pattern"
+            },
+            "uri": {
+              "type": "string",
+              "description": "Optional document URI to scope the search"
+            },
+            "sourceSet": {
+              "type": "string",
+              "description": "Optional source set scope"
+            },
+            "kinds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional symbol kinds filter"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Maximum number of items to return"
+            },
+            "maxPayloadBytes": {
+              "type": "number",
+              "description": "Maximum payload size in bytes"
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Opaque pagination cursor"
+            }
+          },
+          "required": [
+            "projectUri",
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "grails_symbols_explain",
+        "displayName": "Grails Symbol Explain",
+        "description": "Explain a symbol at a specific location or identifier in a Grails project.",
+        "modelDescription": "Explain a symbol, its provenance, resolution kind, and signature in a Grails project.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "Canonical URI of the project root"
+            },
+            "documentUri": {
+              "type": "string",
+              "description": "Document URI containing the symbol"
+            },
+            "symbolName": {
+              "type": "string",
+              "description": "Name of the symbol to explain"
+            },
+            "line": {
+              "type": "number",
+              "description": "0-based line number"
+            },
+            "character": {
+              "type": "number",
+              "description": "0-based character offset"
+            }
+          },
+          "required": [
+            "projectUri",
+            "documentUri"
+          ]
+        }
+      },
+      {
+        "name": "grails_project_diagnostics",
+        "displayName": "Grails Project Diagnostics",
+        "description": "Get current diagnostics for a Grails project or document.",
+        "modelDescription": "Retrieve compile and analysis diagnostics with provenance and severity for a Grails project or document.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "Canonical URI of the project root"
+            },
+            "documentUri": {
+              "type": "string",
+              "description": "Optional document URI filter"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "Error",
+                "Warning",
+                "Information",
+                "Hint"
+              ],
+              "description": "Optional minimum severity level"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Maximum count of diagnostics to return"
+            }
+          },
+          "required": [
+            "projectUri"
+          ]
+        }
       }
     ]
   },

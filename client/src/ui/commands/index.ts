@@ -1,5 +1,6 @@
 import type { Disposable, ExtensionContext } from "vscode";
 import type { ServiceContainer } from "../../core/container/ServiceContainer";
+import { AnalysisCommands } from "./AnalysisCommands";
 import { ArtifactCommands } from "./ArtifactCommands";
 import type { BaseCommandProvider } from "./BaseCommandProvider";
 import { ExtensionCommands } from "./ExtensionCommands";
@@ -24,6 +25,7 @@ export class Commands implements Disposable {
       new ExtensionCommands(context, container),
       new LogCommands(context, container),
       new LegacyCommands(context, container),
+      new AnalysisCommands(context, container),
     ];
   }
 

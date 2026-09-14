@@ -191,13 +191,13 @@
     {
       "id": "R3-02",
       "title": "Expose first VS Code agent reads",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R3-01"
       ],
       "spec": "docs/execution/task-specifications.md#r3-02",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R3-02.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R3-03",

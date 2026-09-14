@@ -16,5 +16,9 @@ class AnalysisOperationException extends RuntimeException {
     AnalysisErrorResponse toResponse() {
         return new AnalysisErrorResponse(message, errorCode, details)
     }
+
+    AnalysisErrorResponse getErrorResponse() {
+        return toResponse()
+    }
 }
 

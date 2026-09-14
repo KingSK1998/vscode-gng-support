@@ -1,6 +1,7 @@
 import type { DashboardService } from "../../features/dashboard/DashboardService";
 import type { DependencyGraphService } from "../../features/dependency-graph/DependencyGraphService";
 import type { GormSqlPreviewService } from "../../features/gorm-sql-preview/GormSqlPreviewService";
+import type { AnalysisToolService } from "../../services/analysis/AnalysisToolService";
 import type { ArtifactService } from "../../services/artifacts/ArtifactService";
 import type { DebugService } from "../../services/debugging/DebugService";
 import type { ErrorService } from "../../services/errors/ErrorService";
@@ -26,6 +27,7 @@ export interface ServiceRegistry {
   DependencyGraphService: DependencyGraphService;
   GormSqlPreviewService: GormSqlPreviewService;
   GrailsTestService: GrailsTestService;
+  AnalysisToolService: AnalysisToolService;
 }
 
 /** Service names that match the interface keys exactly */

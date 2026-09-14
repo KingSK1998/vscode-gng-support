@@ -27,6 +27,10 @@ class GrailsDiagnosticService {
         this.service = service
     }
 
+    Map<String, Set<Diagnostic>> getCurrentDiagnostics() {
+        return Collections.unmodifiableMap(new HashMap<String, Set<Diagnostic>>(currentDiagnostics))
+    }
+
     protected LanguageClient getClient() { return service.client }
 
     /**
@@ -215,9 +219,24 @@ class GrailsDiagnosticService {
     }
 
     /**
+     * Records diagnostics into the internal map for a specific file URI.
+     */
+    void recordDiagnostics(String uri, Collection<Diagnostic> diagnostics) {
+        if (!uri) return
+        if (diagnostics == null || diagnostics.isEmpty()) {
+            currentDiagnostics.remove(uri)
+        } else {
+            currentDiagnostics.put(uri, new HashSet<Diagnostic>(diagnostics))
+        }
+    }
+
+    /**
      * Publishes a list of diagnostics for a file.
      */
     void publishDiagnostics(String uri, List<Diagnostic> diagnostics) {
+        if (uri) {
+            recordDiagnostics(uri, diagnostics)
+        }
         if (client) {
             client.publishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics))
         }

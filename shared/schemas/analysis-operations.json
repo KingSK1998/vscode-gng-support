@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Shared Typed Analysis Operations Schema",
+  "description": "Contracts for IDE and Agent shared typed analysis operations (R3-01)",
+  "type": "object",
+  "definitions": {
+    "Freshness": {
+      "type": "string",
+      "enum": ["current", "stale", "unavailable"]
+    },
+    "Completeness": {
+      "type": "string",
+      "enum": ["complete", "partial", "unavailable"]
+    },
+    "ResolutionKind": {
+      "type": "string",
+      "enum": [
+        "declaration-backed",
+        "framework-derived",
+        "runtime-observed",
+        "heuristic",
+        "unresolved"
+      ]
+    },
+    "OriginKind": {
+      "type": "string",
+      "enum": [
+        "DECLARATION",
+        "COMPILATION_UNIT",
+        "CAPABILITY_ADAPTER",
+        "INDEX",
+        "UNKNOWN"
+      ]
+    },
+    "Position": {
+      "type": "object",
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 },
+        "character": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["line", "character"]
+    },
+    "Range": {
+      "type": "object",
+      "properties": {
+        "start": { "$ref": "#/definitions/Position" },
+        "end": { "$ref": "#/definitions/Position" }
+      },
+      "required": ["start", "end"]
+    },
+    "AnalysisEvidence": {
+      "type": "object",
+      "properties": {
+        "uri": { "type": "string" },
+        "symbol": { "type": "string" },
+        "adapterRule": { "type": ["string", "null"] },
+        "artifactCoordinates": { "type": ["string", "null"] },
+        "artifactFingerprint": { "type": ["string", "null"] },
+        "sourceSet": { "type": ["string", "null"] }
+      },
+      "required": ["uri", "symbol"]
+    },
+    "AnalysisSymbolItem": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "containerName": { "type": ["string", "null"] },
+        "uri": { "type": "string" },
+        "range": { "$ref": "#/definitions/Range" },
+        "origin": { "$ref": "#/definitions/OriginKind" },
+        "resolution": { "$ref": "#/definitions/ResolutionKind" },
+        "artifactCoordinates": { "type": ["string", "null"] },
+        "signature": { "type": ["string", "null"] },
+        "evidence": { "$ref": "#/definitions/AnalysisEvidence" }
+      },
+      "required": ["name", "kind", "uri", "origin", "resolution"]
+    },
+    "AnalysisDiagnosticItem": {
+      "type": "object",
+      "properties": {
+        "documentUri": { "type": "string" },
+        "range": { "$ref": "#/definitions/Range" },
+        "severity": { "type": "string", "enum": ["Error", "Warning", "Information", "Hint"] },
+        "message": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "code": { "type": ["string", "null"] }
+      },
+      "required": ["documentUri", "range", "severity", "message"]
+    },
+    "CapabilityDescriptor": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "detectionEvidence": { "type": "string" },
+        "applicability": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "enabled", "detectionEvidence", "applicability", "description"]
+    },
+    "ProjectCapabilitiesRequest": {
+      "type": "object",
+      "properties": {
+        "projectUri": { "type": "string" },
+        "sourceSet": { "type": ["string", "null"] }
+      },
+      "required": ["projectUri"]
+    },
+    "ProjectCapabilitiesResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "projectUri": { "type": "string" },
+        "projectName": { "type": "string" },
+        "projectType": { "type": "string" },
+        "analysisRevision": { "type": "string" },
+        "grailsVersion": { "type": ["string", "null"] },
+        "groovyVersion": { "type": ["string", "null"] },
+        "javaVersion": { "type": ["string", "null"] },
+        "compatibilityLevel": { "type": "string", "enum": ["TESTED", "EXPERIMENTAL", "UNSUPPORTED"] },
+        "freshness": { "$ref": "#/definitions/Freshness" },
+        "completeness": { "$ref": "#/definitions/Completeness" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CapabilityDescriptor" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "reasons": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "projectUri",
+        "projectName",
+        "projectType",
+        "analysisRevision",
+        "compatibilityLevel",
+        "freshness",
+        "completeness",
+        "capabilities",
+        "limitations",
+        "reasons"
+      ]
+    },
+    "SymbolSearchRequest": {
+      "type": "object",
+      "properties": {
+        "projectUri": { "type": "string" },
+        "query": { "type": "string" },
+        "uri": { "type": ["string", "null"] },
+        "sourceSet": { "type": ["string", "null"] },
+        "kinds": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 },
+        "maxPayloadBytes": { "type": "integer", "minimum": 1024, "maximum": 262144, "default": 65536 },
+        "cursor": { "type": ["string", "null"] }
+      },
+      "required": ["projectUri", "query"]
+    },
+    "SymbolSearchResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "projectUri": { "type": "string" },
+        "analysisRevision": { "type": "string" },
+        "freshness": { "$ref": "#/definitions/Freshness" },
+        "completeness": { "$ref": "#/definitions/Completeness" },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/AnalysisSymbolItem" }
+        },
+        "nextCursor": { "type": ["string", "null"] },
+        "totalEstimated": { "type": "integer", "minimum": 0 },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "projectUri",
+        "analysisRevision",
+        "freshness",
+        "completeness",
+        "items",
+        "totalEstimated",
+        "limitations"
+      ]
+    },
+    "SymbolExplainRequest": {
+      "type": "object",
+      "properties": {
+        "projectUri": { "type": "string" },
+        "documentUri": { "type": "string" },
+        "symbolName": { "type": ["string", "null"] },
+        "line": { "type": ["integer", "null"], "minimum": 0 },
+        "character": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "required": ["projectUri", "documentUri"]
+    },
+    "SymbolExplainResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "projectUri": { "type": "string" },
+        "documentUri": { "type": "string" },
+        "analysisRevision": { "type": "string" },
+        "freshness": { "$ref": "#/definitions/Freshness" },
+        "completeness": { "$ref": "#/definitions/Completeness" },
+        "symbol": {
+          "anyOf": [
+            { "$ref": "#/definitions/AnalysisSymbolItem" },
+            { "type": "null" }
+          ]
+        },
+        "documentation": { "type": ["string", "null"] },
+        "declaringType": { "type": ["string", "null"] },
+        "inheritedFrom": { "type": ["string", "null"] },
+        "relatedSymbols": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/AnalysisSymbolItem" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "projectUri",
+        "documentUri",
+        "analysisRevision",
+        "freshness",
+        "completeness",
+        "relatedSymbols",
+        "limitations"
+      ]
+    },
+    "ProjectDiagnosticsRequest": {
+      "type": "object",
+      "properties": {
+        "projectUri": { "type": "string" },
+        "documentUri": { "type": ["string", "null"] },
+        "severity": { "type": ["string", "null"], "enum": ["Error", "Warning", "Information", "Hint", null] },
+        "limit": { "type": "integer", "minimum": 1, "maximum": 500, "default": 100 }
+      },
+      "required": ["projectUri"]
+    },
+    "ProjectDiagnosticsResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "projectUri": { "type": "string" },
+        "analysisRevision": { "type": "string" },
+        "freshness": { "$ref": "#/definitions/Freshness" },
+        "completeness": { "$ref": "#/definitions/Completeness" },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/AnalysisDiagnosticItem" }
+        },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "projectUri",
+        "analysisRevision",
+        "freshness",
+        "completeness",
+        "diagnostics",
+        "totalCount",
+        "limitations"
+      ]
+    },
+    "AnalysisErrorResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "error": { "type": "string" },
+        "code": {
+          "type": "string",
+          "enum": [
+            "INVALID_INPUT",
+            "UNAVAILABLE",
+            "CANCELLED",
+            "TIMEOUT",
+            "CURSOR_EXPIRED",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "details": { "type": ["string", "null"] }
+      },
+      "required": ["schemaVersion", "error", "code"]
+    }
+  }
+}
+

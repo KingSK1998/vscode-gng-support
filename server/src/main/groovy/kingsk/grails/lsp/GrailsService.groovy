@@ -3,6 +3,7 @@ package kingsk.grails.lsp
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import kingsk.grails.lsp.context.ProviderContext
+import kingsk.grails.lsp.core.analysis.AnalysisOperationService
 import kingsk.grails.lsp.core.compiler.GrailsCompiler
 import kingsk.grails.lsp.core.visitor.GrailsASTVisitor
 import kingsk.grails.lsp.model.dto.GrailsProject
@@ -65,6 +66,7 @@ class GrailsService implements LanguageClientAware, ProviderContext {
     GrailsDependencyProvider dependencyProvider
     GrailsGormSqlProvider gormSqlProvider
     GrailsTestDiscoveryProvider testDiscoveryProvider
+    AnalysisOperationService analysisOperationService
     CancellationService cancellationService
     ProviderHealthService healthService
     ProviderRegistry providerRegistry
@@ -106,6 +108,7 @@ class GrailsService implements LanguageClientAware, ProviderContext {
         this.healthService = new ProviderHealthService()
         this.discoveryService = new DiscoveryService()
         this.workspaceManager = new WorkspaceManager(this)
+        this.analysisOperationService = new AnalysisOperationService(workspaceManager, this)
         this.providerRegistry = new ProviderRegistry(this, workspaceManager)
         this.gradle = new GradleService(this)
         this.fileTracker = new FileContentTracker(this)

@@ -180,13 +180,13 @@
     {
       "id": "R3-01",
       "title": "Define shared typed analysis operations",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R2-06"
       ],
       "spec": "docs/execution/task-specifications.md#r3-01",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R3-01.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R3-02",

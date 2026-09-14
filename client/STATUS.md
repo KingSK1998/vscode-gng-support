@@ -1,7 +1,7 @@
 # Client Status
 
 > **AI AGENTS: Update this file on EVERY task that touches client code. Status only — no docs, no API, no architecture. Just current state.**
-> Last updated: 2026-09-09
+> Last updated: 2026-09-14
 
 ---
 
@@ -20,6 +20,7 @@
 
 | Feature | Notes |
 |---|---|
+| Analysis operations protocol types | `client/src/shared/protocol/analysis.ts` matching JSON schema (R3-01) |
 | Groovy syntax highlighting | TextMate grammar |
 | GSP syntax highlighting | TextMate grammar |
 | Groovy code snippets | Controller, Service, Domain, Test templates |

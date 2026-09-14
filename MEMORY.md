@@ -450,3 +450,43 @@
     - Updated `docs/execution/records/R2-06.md`: Recorded full acceptance evidence with standalone `Acceptance: PASS`.
     - Updated `docs/execution/task-queue.json`: R2-06 marked `done`.
 - Next roadmap task: **R3-01** (Define shared typed analysis operations).
+
+## R3-01 Acceptance and Completion Milestone (2026-09-14)
+
+- **R3-01 Completed & Accepted**:
+  - Defined canonical typed analysis operations conforming to `docs/execution/task-specifications.md#r3-01`, `docs/specs/agent-tools.md`, and `docs/invariants.md`:
+    - Canonical Schema & Types:
+      - `shared/schemas/analysis-operations.json`: Full Draft-07 JSON Schema defining request/response envelopes for `project.capabilities`, `symbols.search`, `symbols.explain`, and `project.diagnostics`.
+      - `client/src/shared/protocol/analysis.ts`: TypeScript protocol definitions matching JSON schema.
+    - Server Models & Implementation:
+      - `kingsk.grails.lsp.core.analysis.*`: Typed Groovy models (`AnalysisFreshness`, `AnalysisCompleteness`, `AnalysisResolutionKind`, `AnalysisOriginKind`, `AnalysisErrorCode`, `AnalysisPosition`, `AnalysisRange`, `AnalysisEvidence`, `AnalysisSymbolItem`, `AnalysisDiagnosticItem`, `CapabilityDescriptor`, `ProjectCapabilitiesRequest/Response`, `SymbolSearchRequest/Response`, `SymbolExplainRequest/Response`, `ProjectDiagnosticsRequest/Response`, `AnalysisErrorResponse`, `AnalysisOperationException`).
+      - `AnalysisOperationService.groovy`: Core typed analysis service wired into `GrailsService` and `WorkspaceManager`.
+      - Direct state reads from `SnapshotManager.active`, `FileContentTracker` (unsaved overlays), and `IndexSnapshot` without a second agent index (`INV-TOOL-001`).
+      - Bounds and guardrails: Count (`maxResults`) and byte size (`maxBytes`) caps, cursor pagination (`encodeCursor`/`decodeCursor`), cursor invalidation on revision advance (`CURSOR_EXPIRED`), cancellation token support (`CANCELLED`), input validation (`INVALID_INPUT`).
+      - Explicit distinction between successful empty results (`completeness: "complete"`, `items: []`) and project unavailable states (`UNAVAILABLE` error).
+      - Cross-project revision tracking (`revisionVectors` map).
+    - Verification Gates:
+      - Focused suite: `SharedAnalysisOperationsSpec` (9/9 tests passing):
+        - `R3-01/1`: All four operations expose typed envelopes, freshness, completeness, origin kinds, and per-item evidence.
+        - `R3-01/1`: Provenance links point directly to AST nodes, compiled symbols, or capability adapters.
+        - `R3-01/2`: Count caps, byte caps, and cursor pagination behave predictably across large result sets.
+        - `R3-01/2`: Cursor invalidation detects revision vector changes between paginated requests.
+        - `R3-01/2`: Empty results return valid envelopes with 0 items, while missing/failing project states return explicit UNAVAILABLE error.
+        - `R3-01/2`: CancellationToken cancels long-running analysis requests.
+        - `R3-01/3`: Direct state reads from existing compiler, AST, and index snapshots with zero duplicate index.
+        - `R3-01/3`: Unsaved document overlays take precedence over on-disk files.
+        - `R3-01/3`: Cross-project operations report independent revision vectors.
+      - Regression suites:
+        - `TestedCompatibilitySpec` (7/7 passing)
+        - `GrailsCapabilityAdapterSpec` (7/7 passing)
+      - Client checks:
+        - `npm run compile && npm run check-types && npm run lint` passed (exit code 0).
+      - Roadmap validation:
+        - `node scripts/roadmap.js validate` passed (38 tasks valid).
+    - Status & Knowledge Base:
+      - Updated `server/STATUS.md`: R3-01 marked `✅ Passing` (2026-09-14).
+      - Updated `docs/invariants.md`: Registered `AnalysisOperationService` in §1 Server State Ownership table.
+      - Created `docs/execution/records/R3-01.md`: Recorded full acceptance evidence with standalone `Acceptance: PASS`.
+      - Updated `docs/execution/task-queue.json`: R3-01 marked `done`.
+- Next roadmap task: **R3-02** (Expose first VS Code agent reads).
+

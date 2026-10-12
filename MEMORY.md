@@ -739,5 +739,12 @@
   - Validated roadmap queue: `node scripts/roadmap.js validate` (38 tasks valid).
   - Roadmap status: 32/38 tasks DONE (all R0 through R5 deliverables 100% complete). Remaining 6 tasks (R6-01 through R6-06) are deferred post-1.0 features.
 
+## CI Workflow & Linux Runner Stability (2026-10-12)
 
-
+- **Workflow fixes**: Resolved duplicate YAML key `files:` in `.github/workflows/ci.yml`, synchronized `package-lock.json`, and ensured automatic marketplace publish remains disabled per release constraints.
+- **Error recovery & test fixture stability**:
+  - Investigated Spock failure on GitHub Actions Ubuntu runner in `GroovyCompletionProviderSpec` (`items.size() > 0` at line 68).
+  - Identified root cause in `SourceSetCompilationState.recoverFromSyntaxErrors`: when multiple syntax-error test documents coexisted in the compilation unit, the recovery routine picked lines from global error messages without checking `se.sourceLocator == sourceUnit.name`, causing invalid patching of un-dotted lines.
+  - Fixed `SourceSetCompilationState.recoverFromSyntaxErrors` to filter syntax errors by source locator, verify candidate lines end with `.` before patching, and fall back to full-source scanning for trailing dots.
+  - Added clean `closeTextDocument(uri)` teardown in `GroovyCompletionProviderSpec` across dot-notation assertion scenarios.
+  - Documented failure mode `COMP-003` in `docs/failure-modes.md`.

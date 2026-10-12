@@ -253,6 +253,16 @@
 - **Related ADRs:** ADR-011
 - **Date:** 2026-09-13.
 
+### COMP-003: Multi-File Syntax Error Recovery Mismatch
+- **Status:** Resolved (verified in R5-05)
+- **Bug:** When multiple documents with trailing dot or syntax errors exist in the compilation unit simultaneously, error recovery checked global error collector line numbers without matching `sourceLocator` against `sourceUnit.name`, causing wrong line patching and broken AST recovery.
+- **Invariant violated:** `INV-STATE-004`, `INV-STATE-005`
+- **Root cause:** `SourceSetCompilationState.recoverFromSyntaxErrors` took first error from `compilationUnit.errorCollector` regardless of file origin, and blindly appended dummy completion tokens when line did not end with `.`.
+- **Fix:** Filter syntax errors by matching `se.sourceLocator` against `sourceUnit.name`, verify candidate line ends with `.` before patching, fall back to scanning source lines for trailing dots, and cleanly close test documents after assertions.
+- **Test:** `GroovyCompletionProviderSpec` (`should provide member access completions after dot`).
+- **Detected by:** CI build on Ubuntu runner.
+- **Date:** 2026-10-12.
+
 ---
 
 ## Failure Test Matrix — Use Before Every Feature

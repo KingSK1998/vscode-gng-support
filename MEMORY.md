@@ -754,3 +754,5 @@
   - Updated `docs/invariants.md` state ownership row for `ProjectContextImpl`.
   - Added 10-minute test execution timeout in `server/build.gradle`.
   - Documented failure mode `DP-002` in `docs/failure-modes.md`.
+- **Workflow artifact staging**:
+  - Added `copy-server` step in `.github/workflows/ci.yml` immediately following `npm ci` so that `client/server/grails-language-server-current-all.jar` is available during `test:client` (`package.test.js` asset verification) and `test:smoke` (stdio server launch).

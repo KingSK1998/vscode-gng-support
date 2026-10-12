@@ -58,6 +58,9 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
+      - name: 📋 Deploy server JAR to client
+        run: npm run copy-server
+
       # Build client with proper TypeScript compilation
       - name: 🏗️ Build client
         run: |

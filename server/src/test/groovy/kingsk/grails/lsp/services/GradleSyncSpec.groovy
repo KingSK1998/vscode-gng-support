@@ -203,6 +203,7 @@ class GradleSyncSpec extends BaseLspSpec {
         File root = new File(System.getProperty("user.dir"), "build/gradle_supersede_test")
         root.mkdirs()
         new File(root, "build.gradle").text = ""
+        grailsService.gradle.cache.forceInvalidation(root)
         def proj = new GrailsProject(name: "SupersedeTest", rootDirectory: root)
         grailsService.workspaceManager.addProject(proj)
         def ctx = (ProjectContextImpl) grailsService.workspaceManager.getProjectForUri(root.toURI().toString())

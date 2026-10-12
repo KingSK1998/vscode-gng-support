@@ -281,10 +281,13 @@
 - **Detected by:** CI build job failure.
 - **Date:** 2026-10-12.
 
-### `SYNC-001`: Superseded Sync Test Premature Poll Timeout on Constrained CI Runner
-- **Symptoms:** `GradleSyncSpec > R1-03/1: superseded sync cancels in-flight work and applies newest configuration` intermittently failed with `ctx.project.name == "NewSyncResult"` on 2-core runners.
-- **Root cause:** Polling loop with fixed 5000ms timeout timed out before background worker thread finished callback for `secondFuture` under heavy runner load.
-- **Fix:** Explicitly awaited `secondFuture.get(10, TimeUnit.SECONDS)` and increased poll timeout bound to 10s.
+### `SYNC-001`: Superseded Sync Test Premature Poll Timeout and Mock Cache Collision
+- **Symptoms:** `GradleSyncSpec > R1-03/1: superseded sync cancels in-flight work and applies newest configuration` intermittently failed with `ctx.project.name == "NewSyncResult"` on CI runners.
+- **Root cause:** 
+  1. `GradleService.getGrailsProjectAsync` cached and loaded projects via `ProjectCache` even when a custom `buildFunction` mock was injected, leading to stale binary disk cache hits returning `OldSyncResult` instead of invoking `buildFunction` for `NewSyncResult`.
+  2. Cancellation on `timeoutFuture` did not explicitly propagate to the underlying `workerFuture`.
+  3. Polling loop with fixed 5000ms timeout timed out before background worker thread finished callback for `secondFuture` under heavy runner load.
+- **Fix:** Guarded `ProjectCache.load/save` with `buildFunction == null`, explicitly propagated `future.cancel(true)` on timeout/failure completion, invalidated test project cache via `forceInvalidation()`, explicitly awaited `secondFuture.get(10, TimeUnit.SECONDS)`, and increased poll timeout bound to 10s.
 - **Test:** `GradleSyncSpec` (`R1-03/1`).
 - **Detected by:** CI build job failure on `main`.
 - **Date:** 2026-10-12.

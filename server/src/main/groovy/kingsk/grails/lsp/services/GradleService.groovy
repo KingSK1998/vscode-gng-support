@@ -69,7 +69,7 @@ class GradleService {
                     throw new FileNotFoundException("[GRADLE] Project directory does not exist: ${projectDir}")
                 }
 
-                if (!cache.isStale(rootDir)) {
+                if (buildFunction == null && !cache.isStale(rootDir)) {
                     GrailsProject cached = cache.load(rootDir)
                     if (cached) {
                         return cached
@@ -82,7 +82,9 @@ class GradleService {
                     log.info("[GRADLE] Gradle sync cancelled for ${rootDir.name}; discarding result and skipping cache")
                     throw new java.util.concurrent.CancellationException("Gradle sync cancelled")
                 }
-                cache.save(rootDir, project)
+                if (buildFunction == null) {
+                    cache.save(rootDir, project)
+                }
 
                 service.client?.projectUpdated(ProjectMapper.toDTO(project))
                 return project
@@ -92,7 +94,8 @@ class GradleService {
             }
         } as java.util.function.Supplier<GrailsProject>)
 
-        return future.orTimeout(30, TimeUnit.SECONDS).whenComplete({ GrailsProject res, Throwable ex ->
+        CompletableFuture<GrailsProject> timeoutFuture = future.orTimeout(30, TimeUnit.SECONDS)
+        timeoutFuture.whenComplete({ GrailsProject res, Throwable ex ->
             if (ex != null) {
                 if (ex instanceof java.util.concurrent.TimeoutException || ex?.cause instanceof java.util.concurrent.TimeoutException) {
                     log.warn("[GRADLE] Gradle sync timed out after 30 seconds for: ${projectDir}. Triggering cancellation.")
@@ -102,8 +105,10 @@ class GradleService {
                     log.warn("[GRADLE] Gradle sync failed for: ${projectDir}. Triggering cancellation to prevent daemon leak.")
                 }
                 cancellationSource.cancel()
+                future.cancel(true)
             }
         })
+        return timeoutFuture
     }
 
     GrailsProject getGrailsProject(String projectDir) {

@@ -174,6 +174,43 @@ export class GrailsMcpServer extends EventEmitter {
         required: ["projectUri"],
       },
     },
+    {
+      name: "grails_change_review",
+      description:
+        "Present unified change review connecting proposed edits, source evidence, change impact, check execution status, and unchecked assumptions.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          projectUri: {
+            type: "string",
+            description: "URI of the project root",
+          },
+          changeId: {
+            type: "string",
+            description: "Optional identifier for this proposed or applied change",
+          },
+          edits: {
+            type: "array",
+            items: { type: "object" },
+            description: "Proposed RenameEdit list",
+          },
+          impact: {
+            type: "object",
+            description: "Optional ChangeImpactResponse",
+          },
+          checks: {
+            type: "object",
+            description: "Optional CheckExecutionResponse",
+          },
+          assumptions: {
+            type: "array",
+            items: { type: "string" },
+            description: "Unchecked assumptions declared by the agent",
+          },
+        },
+        required: ["projectUri"],
+      },
+    },
   ];
 
   constructor(
@@ -206,7 +243,7 @@ export class GrailsMcpServer extends EventEmitter {
       this.dispose();
     });
 
-    this.input.on("error", (err) => {
+    this.input.on("error", err => {
       this.emit("error", err);
       this.dispose();
     });
@@ -276,11 +313,15 @@ export class GrailsMcpServer extends EventEmitter {
 
     const msg = parsed as Record<string, unknown>;
     if (msg.jsonrpc !== "2.0") {
-      this.sendJsonRpcError(msg.id as string | number | null, -32600, "Invalid Request: 'jsonrpc' must be '2.0'.");
+      this.sendJsonRpcError(
+        msg.id as string | number | null,
+        -32600,
+        "Invalid Request: 'jsonrpc' must be '2.0'."
+      );
       return;
     }
 
-    this.handleMessage(msg).catch((err) => {
+    this.handleMessage(msg).catch(err => {
       this.sendJsonRpcError(
         msg.id as string | number | null,
         -32603,
@@ -395,7 +436,11 @@ export class GrailsMcpServer extends EventEmitter {
     this.activeRequests.set(id, abortController);
 
     try {
-      const result = await this.executeToolCall(name, args as Record<string, unknown>, abortController.signal);
+      const result = await this.executeToolCall(
+        name,
+        args as Record<string, unknown>,
+        abortController.signal
+      );
       this.sendResult(id, result);
     } finally {
       this.activeRequests.delete(id);
@@ -485,6 +530,11 @@ export class GrailsMcpServer extends EventEmitter {
         boundedArgs = req;
         break;
       }
+      case "grails_change_review": {
+        lspCommand = "grails.analysis.changeReview";
+        boundedArgs = args;
+        break;
+      }
       default:
         return {
           content: [
@@ -514,7 +564,12 @@ export class GrailsMcpServer extends EventEmitter {
       );
 
       // Check if backend returned an AnalysisErrorResponse
-      if (rawResult && typeof rawResult === "object" && "error" in rawResult && "code" in rawResult) {
+      if (
+        rawResult &&
+        typeof rawResult === "object" &&
+        "error" in rawResult &&
+        "code" in rawResult
+      ) {
         return {
           content: [{ type: "text", text: JSON.stringify(rawResult, null, 2) }],
           isError: true,
@@ -576,7 +631,10 @@ export class GrailsMcpServer extends EventEmitter {
     }
   }
 
-  private validateToolArguments(name: string, args: Record<string, unknown>): AnalysisErrorResponse | null {
+  private validateToolArguments(
+    name: string,
+    args: Record<string, unknown>
+  ): AnalysisErrorResponse | null {
     if (!args.projectUri || typeof args.projectUri !== "string") {
       return {
         schemaVersion: 1,
@@ -660,7 +718,12 @@ export class GrailsMcpServer extends EventEmitter {
     });
   }
 
-  private sendJsonRpcError(id: string | number | null, code: number, message: string, data?: unknown): void {
+  private sendJsonRpcError(
+    id: string | number | null,
+    code: number,
+    message: string,
+    data?: unknown
+  ): void {
     this.sendRaw({
       jsonrpc: "2.0",
       id,

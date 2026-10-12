@@ -3,23 +3,18 @@ import { BaseCommandProvider } from "./BaseCommandProvider";
 
 export class LegacyCommands extends BaseCommandProvider {
   registerCommands(): void {
-    this.register("grails.run", () => this.executeGrailsTerminalCommand("run-app"));
-    this.register("grails.test", () => this.executeGrailsTerminalCommand("test-app"));
-    this.register("grails.clean", () => this.executeGrailsTerminalCommand("clean"));
-    this.register("grails.compile", () => this.executeGrailsTerminalCommand("compile"));
+    this.register("grails.run", () => this.executeGrailsCommand("bootRun"));
+    this.register("grails.test", () => this.executeGrailsCommand("test"));
+    this.register("grails.clean", () => this.executeGrailsCommand("clean"));
+    this.register("grails.compile", () => this.executeGrailsCommand("compileGroovy"));
   }
 
-  private executeGrailsTerminalCommand(command: string): void {
-    const projects = this.container.projectService.getProjects();
-    if (projects.length === 0) {
+  private async executeGrailsCommand(taskName: string): Promise<void> {
+    const project = this.container.projectService.resolveTargetProject();
+    if (!project) {
       vscode.window.showWarningMessage("No Grails projects found");
       return;
     }
-    const terminal = vscode.window.createTerminal({
-      name: "Grails",
-      cwd: projects[0].rootPath,
-    });
-    terminal.sendText(`./gradlew ${command}`);
-    terminal.show();
+    await this.container.gradleService.runTask(project, taskName);
   }
 }

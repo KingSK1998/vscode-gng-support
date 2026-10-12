@@ -36,10 +36,17 @@ export enum TreeItemKind {
   SrcFile = "source-file",
   TestFile = "test-file",
 
+  // Generated (read-only) sources
+  GeneratedRoot = "generated-root",
+  GeneratedDir = "generated-dir",
+  GeneratedFile = "generated-file",
+
   // Special cases
   Route = "route",
   Dependency = "dependency",
   Error = "error",
   Package = "package",
+  Empty = "empty",
+  Loading = "loading",
   UTILITIES_ROOT = "utilities-root",
 }

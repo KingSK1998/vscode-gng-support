@@ -33,7 +33,7 @@ class ClosureDelegateStrategy extends BaseCompletionStrategy {
 
     @Override
     boolean canHandle(CompletionRequest request, RequestContext ctx) {
-        return getEnclosingClosureMethodCall(request.offsetNode, ctx.ast()) != null || 
+        return getEnclosingClosureMethodCall(request.offsetNode, ctx.ast()) != null ||
                getEnclosingClosureField(request.offsetNode, ctx.ast()) != null
     }
 
@@ -63,7 +63,7 @@ class ClosureDelegateStrategy extends BaseCompletionStrategy {
             if (domainClass == null) {
                 domainClass = ctx.ast()?.getClassNodes()?.find { true }
             }
-            
+
             if (domainClass) {
                 if (fieldName == 'constraints') {
                     for (PropertyNode p : domainClass.properties) {
@@ -93,7 +93,8 @@ class ClosureDelegateStrategy extends BaseCompletionStrategy {
 
     private FieldNode getEnclosingClosureField(ASTNode node, ASTAccessor ast) {
         ASTNode current = node
-        while (current != null) {
+        Set<ASTNode> visited = new HashSet<>()
+        while (current != null && visited.add(current)) {
             if (current instanceof ClosureExpression) {
                 ASTNode parent = ast.getParent(current)
                 if (parent instanceof FieldNode) {
@@ -107,9 +108,13 @@ class ClosureDelegateStrategy extends BaseCompletionStrategy {
 
     private MethodCallExpression getEnclosingClosureMethodCall(ASTNode node, ASTAccessor ast) {
         ASTNode current = node
-        while (current != null) {
+        Set<ASTNode> visited = new HashSet<>()
+        while (current != null && visited.add(current)) {
             if (current instanceof ClosureExpression) {
                 ASTNode parent = ast.getParent(current)
+                if (parent instanceof MethodCallExpression) {
+                    return (MethodCallExpression) parent
+                }
                 if (parent instanceof ArgumentListExpression) {
                     ASTNode grandParent = ast.getParent(parent)
                     if (grandParent instanceof MethodCallExpression) {

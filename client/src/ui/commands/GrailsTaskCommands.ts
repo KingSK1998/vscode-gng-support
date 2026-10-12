@@ -1,91 +1,228 @@
 import * as vscode from "vscode";
-import { DependencyGraphService } from "../../features/dependency-graph/DependencyGraphService";
-import { GormSqlPreviewService } from "../../features/gorm-sql-preview/GormSqlPreviewService";
+import type { ProjectInfo } from "../../features/models/modelTypes";
+import type { DebugService } from "../../services/debugging/DebugService";
+import type { ErrorService } from "../../services/errors/ErrorService";
 import { ErrorSeverity, ErrorSource } from "../../services/errors/errorTypes";
+import type { GradleService } from "../../services/gradle/GradleService";
+import type { ProjectService } from "../../services/workspace/ProjectService";
 import { BaseCommandProvider } from "./BaseCommandProvider";
 
-export class GrailsTaskCommands extends BaseCommandProvider {
-  private dependencyGraphService: DependencyGraphService | null = null;
-  private gormSqlPreviewService: GormSqlPreviewService | null = null;
+/* ================= APPLICATION LAYER: USECASES ================= */
 
-  registerCommands(): void {
-    this.register("grails.runApp", async () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
-      }
-      await this.container.gradleService.runGrailsApp(projects[0]);
-    });
+function resolveTargetProject(
+  projectService: ProjectService,
+  target?: ProjectInfo | vscode.Uri | string
+): ProjectInfo | undefined {
+  if (target && typeof target === "object" && "rootPath" in target && "type" in target) {
+    return target;
+  }
+  const uri = target ?? vscode.window.activeTextEditor?.document.uri;
+  return projectService.resolveTargetProject(uri);
+}
 
-    this.register("grails.debugApp", async () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
-      }
-      await this.container.debugService.debugGrailsApp(projects[0]);
-    });
+export class RunGrailsAppUseCase {
+  constructor(
+    private readonly gradleService: GradleService,
+    private readonly projectService: ProjectService,
+    private readonly errorService: ErrorService
+  ) {}
 
-    this.register("grails.showDependencyGraph", () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
+  async execute(target?: ProjectInfo | vscode.Uri | string): Promise<boolean> {
+    try {
+      const project = resolveTargetProject(this.projectService, target);
+      if (!project) {
+        vscode.window.showWarningMessage("No Grails projects found in workspace");
+        return false;
       }
-      this.dependencyGraphService ??= new DependencyGraphService(
-        this.context,
-        this.container.errorService,
-        this.container.languageServerManager
+      return await this.gradleService.runGrailsApp(project);
+    } catch (error) {
+      this.errorService.handleError(
+        "Failed to run Grails application",
+        error,
+        ErrorSource.GradleService,
+        ErrorSeverity.Error
       );
-      this.dependencyGraphService.openGraph(projects[0]);
+      return false;
+    }
+  }
+}
+
+export class DebugGrailsAppUseCase {
+  constructor(
+    private readonly debugService: DebugService,
+    private readonly projectService: ProjectService,
+    private readonly errorService: ErrorService
+  ) {}
+
+  async execute(target?: ProjectInfo | vscode.Uri | string): Promise<boolean> {
+    try {
+      const project = resolveTargetProject(this.projectService, target);
+      if (!project) {
+        vscode.window.showWarningMessage("No Grails projects found in workspace");
+        return false;
+      }
+      return await this.debugService.debugGrailsApp(project);
+    } catch (error) {
+      this.errorService.handleError(
+        "Failed to debug Grails application",
+        error,
+        ErrorSource.GradleService,
+        ErrorSeverity.Error
+      );
+      return false;
+    }
+  }
+}
+
+export class TestGrailsAppUseCase {
+  constructor(
+    private readonly gradleService: GradleService,
+    private readonly projectService: ProjectService,
+    private readonly errorService: ErrorService
+  ) {}
+
+  async execute(target?: ProjectInfo | vscode.Uri | string): Promise<boolean> {
+    try {
+      const project = resolveTargetProject(this.projectService, target);
+      if (!project) {
+        vscode.window.showWarningMessage("No Grails projects found in workspace");
+        return false;
+      }
+      return await this.gradleService.testGrailsApp(project);
+    } catch (error) {
+      this.errorService.handleError(
+        "Failed to test Grails application",
+        error,
+        ErrorSource.GradleService,
+        ErrorSeverity.Error
+      );
+      return false;
+    }
+  }
+}
+
+export class BuildGrailsProjectUseCase {
+  constructor(
+    private readonly gradleService: GradleService,
+    private readonly projectService: ProjectService,
+    private readonly errorService: ErrorService
+  ) {}
+
+  async execute(
+    target?: ProjectInfo | vscode.Uri | string,
+    taskName = "build"
+  ): Promise<boolean> {
+    try {
+      const project = resolveTargetProject(this.projectService, target);
+      if (!project) {
+        vscode.window.showWarningMessage("No Grails projects found in workspace");
+        return false;
+      }
+      return await this.gradleService.buildProject(project, taskName);
+    } catch (error) {
+      this.errorService.handleError(
+        `Failed to execute task ${taskName}`,
+        error,
+        ErrorSource.GradleService,
+        ErrorSeverity.Error
+      );
+      return false;
+    }
+  }
+}
+
+export class CleanGrailsProjectUseCase {
+  constructor(
+    private readonly gradleService: GradleService,
+    private readonly projectService: ProjectService,
+    private readonly errorService: ErrorService
+  ) {}
+
+  async execute(target?: ProjectInfo | vscode.Uri | string): Promise<boolean> {
+    try {
+      const project = resolveTargetProject(this.projectService, target);
+      if (!project) {
+        vscode.window.showWarningMessage("No Grails projects found in workspace");
+        return false;
+      }
+      return await this.gradleService.cleanProject(project);
+    } catch (error) {
+      this.errorService.handleError(
+        "Failed to clean Grails project",
+        error,
+        ErrorSource.GradleService,
+        ErrorSeverity.Error
+      );
+      return false;
+    }
+  }
+}
+
+/* ================= COMMAND PROVIDER ============================ */
+
+export class GrailsTaskCommands extends BaseCommandProvider {
+  registerCommands(): void {
+    this.register("grails.runApp", async (target?: ProjectInfo | vscode.Uri | string) => {
+      await new RunGrailsAppUseCase(
+        this.container.gradleService,
+        this.container.projectService,
+        this.container.errorService
+      ).execute(target);
+    });
+
+    this.register("grails.debugApp", async (target?: ProjectInfo | vscode.Uri | string) => {
+      await new DebugGrailsAppUseCase(
+        this.container.debugService,
+        this.container.projectService,
+        this.container.errorService
+      ).execute(target);
+    });
+
+    this.register("grails.testApp", async (target?: ProjectInfo | vscode.Uri | string) => {
+      await new TestGrailsAppUseCase(
+        this.container.gradleService,
+        this.container.projectService,
+        this.container.errorService
+      ).execute(target);
+    });
+
+    this.register("grails.buildProject", async (target?: ProjectInfo | vscode.Uri | string) => {
+      await new BuildGrailsProjectUseCase(
+        this.container.gradleService,
+        this.container.projectService,
+        this.container.errorService
+      ).execute(target, "build");
+    });
+
+    this.register("grails.cleanProject", async (target?: ProjectInfo | vscode.Uri | string) => {
+      await new CleanGrailsProjectUseCase(
+        this.container.gradleService,
+        this.container.projectService,
+        this.container.errorService
+      ).execute(target);
+    });
+
+    this.register("grails.compileProject", async (target?: ProjectInfo | vscode.Uri | string) => {
+      await new BuildGrailsProjectUseCase(
+        this.container.gradleService,
+        this.container.projectService,
+        this.container.errorService
+      ).execute(target, "compileGroovy");
+    });
+
+    this.register("grails.showDependencyGraph", (target?: ProjectInfo | vscode.Uri | string) => {
+      const project = resolveTargetProject(this.container.projectService, target);
+      if (!project) {
+        vscode.window.showWarningMessage("No Grails projects found in workspace");
+        return;
+      }
+      this.container.dependencyGraphService.openGraph(project);
     });
 
     this.register("grails.showGormSqlPreview", (uri?: vscode.Uri) => {
       const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (!targetUri) return;
-      this.gormSqlPreviewService ??= new GormSqlPreviewService(
-        this.context,
-        this.container.errorService,
-        this.container.languageServerManager
-      );
-      this.gormSqlPreviewService.openPreview(targetUri);
-    });
-
-    this.register("grails.testApp", async () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
-      }
-      await this.container.gradleService.testGrailsApp(projects[0]);
-    });
-
-    this.register("grails.buildProject", async () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
-      }
-      await this.container.gradleService.buildProject(projects[0]);
-    });
-
-    this.register("grails.cleanProject", async () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
-      }
-      await this.container.gradleService.cleanProject(projects[0]);
-    });
-
-    this.register("grails.compileProject", async () => {
-      const projects = this.container.projectService.getProjects();
-      if (projects.length === 0) {
-        vscode.window.showWarningMessage("No Grails projects found");
-        return;
-      }
-      await this.container.gradleService.buildProject(projects[0], "compileGroovy");
+      this.container.gormSqlPreviewService.openPreview(targetUri);
     });
 
     this.register("grails.generateAction", async (uri: string, actionName: string) => {
@@ -114,17 +251,5 @@ export class GrailsTaskCommands extends BaseCommandProvider {
         );
       }
     });
-  }
-
-  override dispose(): void {
-    if (this.dependencyGraphService) {
-      this.dependencyGraphService.dispose();
-      this.dependencyGraphService = null;
-    }
-    if (this.gormSqlPreviewService) {
-      this.gormSqlPreviewService.dispose();
-      this.gormSqlPreviewService = null;
-    }
-    super.dispose();
   }
 }

@@ -36,3 +36,16 @@ export function createWebviewStateManager<T>(context: ExtensionContext, stateKey
     },
   };
 }
+
+export function getNonce(): string {
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let text = "";
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
+export function getWebviewCsp(webview: { cspSource: string }, nonce: string): string {
+  return `default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src ${webview.cspSource};`;
+}

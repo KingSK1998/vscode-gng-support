@@ -29,39 +29,39 @@ import kingsk.grails.lsp.utils.grails.GrailsArtefactUtils
 @Slf4j
 @CompileStatic
 abstract class BaseCompletionStrategy implements CompletionStrategy {
-	
+
 	@Override
 	int getPriority() { return 50 }
 
 	CompletionTarget target() { return CompletionTarget.OFFSET }
-	
+
 	abstract boolean canHandle(CompletionRequest request, RequestContext ctx)
-	
+
 	abstract List<CompletionItem> provideCompletions(CompletionRequest request, RequestContext ctx)
-	
+
 	// ===== Core AST Helper Methods =====
-	
+
 	protected ASTNode getParentOf(ASTNode node, RequestContext ctx) {
 		if (!node) return null
 		return ctx.ast().getParent(node)
 	}
-	
+
 	protected ClassNode getTypeOf(ASTNode node, RequestContext ctx) {
 		if (!node) return null
 		return GrailsASTHelper.getTypeOfNode(node, ctx.ast() as GrailsASTVisitor)
 	}
-	
+
 	// ===== Member Completion Methods =====
-	
+
 	protected void addMemberCompletions(Expression expression, RequestContext ctx, List<CompletionItem> items) {
 		if (!expression) return
 		def visitor = ctx.ast() as GrailsASTVisitor
 		def members = MemberExtractor.collectMembers(expression, visitor)
-		
+
 		members.properties.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
 		members.fields.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
 		members.methods.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
-		
+
 		ClassNode expressionType = GrailsASTHelper.getTypeOfNode(expression, visitor)
 		if (expressionType) {
 			ctx.grailsService()?.discoveryService?.getMethodsForType(expressionType)?.each { String dgmMethod ->
@@ -74,16 +74,16 @@ abstract class BaseCompletionStrategy implements CompletionStrategy {
 			}
 		}
 	}
-	
+
 	protected void addStaticMemberCompletions(ClassNode classType, RequestContext ctx, List<CompletionItem> items) {
 		if (!classType) return
 		def visitor = ctx.ast() as GrailsASTVisitor
 		def members = MemberExtractor.collectMembers(classType, true, null)
-		
+
 		members.properties.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
 		members.fields.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
 		members.methods.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
-		
+
 		if (ctx.grailsProject()?.isGrailsProject) {
 			GrailsArtifactType type = GrailsArtefactUtils.getGrailsArtifactType(classType)
 			if (type == GrailsArtifactType.DOMAIN) {
@@ -104,7 +104,7 @@ abstract class BaseCompletionStrategy implements CompletionStrategy {
 		if (!offsetNode) return
 		def visitor = ctx.ast() as GrailsASTVisitor
 		def scopeItems = ScopeHelper.collectScopeItems(offsetNode, visitor, ScopeHelper.CollectionType.ALL)
-		
+
 		scopeItems.variables.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it as ASTNode)) }
 		scopeItems.parameters.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }
 		scopeItems.members.properties.each { items.add(kingsk.grails.lsp.utils.completion.CompletionUtil.buildCompletionItem(it)) }

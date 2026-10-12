@@ -224,135 +224,135 @@
     {
       "id": "R4-01",
       "title": "Align language feature resolution",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R2-06"
       ],
       "spec": "docs/execution/task-specifications.md#r4-01",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-01.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-02",
       "title": "Model evidenced Grails relationships",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R4-01"
       ],
       "spec": "docs/execution/task-specifications.md#r4-02",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-02.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-03",
       "title": "Deliver GSP embedded-language editing",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R4-02"
       ],
       "spec": "docs/execution/task-specifications.md#r4-03",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-03.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-04",
       "title": "Integrate configuration and i18n intelligence",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R4-03"
       ],
       "spec": "docs/execution/task-specifications.md#r4-04",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-04.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-05",
       "title": "Finish nested source and artifact exploration",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R4-04"
       ],
       "spec": "docs/execution/task-specifications.md#r4-05",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-05.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-06",
       "title": "Validate run debug and test workflows",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R4-05"
       ],
       "spec": "docs/execution/task-specifications.md#r4-06",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-06.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R4-07",
       "title": "Integrate views and accessibility",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R4-06"
       ],
       "spec": "docs/execution/task-specifications.md#r4-07",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R4-07.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R5-01",
       "title": "Implement conservative change impact",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R3-04",
         "R4-07"
       ],
       "spec": "docs/execution/task-specifications.md#r5-01",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R5-01.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R5-02",
       "title": "Deliver version-aware rename previews",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R5-01"
       ],
       "spec": "docs/execution/task-specifications.md#r5-02",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R5-02.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R5-03",
       "title": "Expose scoped compile and test operations",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R5-02"
       ],
       "spec": "docs/execution/task-specifications.md#r5-03",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R5-03.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R5-04",
       "title": "Present human and agent change reviews",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R5-03"
       ],
       "spec": "docs/execution/task-specifications.md#r5-04",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R5-04.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R5-05",
       "title": "Verify and prepare the 1.0 release",
-      "status": "queued",
+      "status": "done",
       "dependsOn": [
         "R5-04"
       ],
       "spec": "docs/execution/task-specifications.md#r5-05",
-      "record": null,
-      "owner": null
+      "record": "docs/execution/records/R5-05.md",
+      "owner": "Antigravity"
     },
     {
       "id": "R6-01",

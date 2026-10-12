@@ -165,6 +165,56 @@ export class ProjectService implements Disposable {
     return this.projects.get(this.activeProjectId);
   }
 
+  getProjectForUri(
+    uri: string | { fsPath?: string; toString?: () => string }
+  ): ProjectInfo | undefined {
+    let filePath: string;
+    if (typeof uri === "string") {
+      filePath = uri.replace(/^file:\/\/\/?/, "");
+    } else if (uri?.fsPath) {
+      filePath = uri.fsPath;
+    } else if (typeof uri?.toString === "function") {
+      filePath = uri.toString().replace(/^file:\/\/\/?/, "");
+    } else {
+      return undefined;
+    }
+
+    const normalizedTarget = path.normalize(filePath).toLowerCase();
+    let bestMatch: ProjectInfo | undefined;
+    let bestMatchLen = 0;
+
+    for (const project of this.projects.values()) {
+      if (!project.rootPath) continue;
+      const normalizedRoot = path.normalize(project.rootPath).toLowerCase();
+      if (
+        normalizedTarget === normalizedRoot ||
+        normalizedTarget.startsWith(normalizedRoot + path.sep)
+      ) {
+        if (normalizedRoot.length > bestMatchLen) {
+          bestMatch = project;
+          bestMatchLen = normalizedRoot.length;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  resolveTargetProject(
+    targetUri?: string | { fsPath?: string; toString?: () => string }
+  ): ProjectInfo | undefined {
+    if (targetUri) {
+      const match = this.getProjectForUri(targetUri);
+      if (match) return match;
+    }
+
+    const active = this.getActiveProject();
+    if (active) return active;
+
+    const all = this.getProjects();
+    return all.length > 0 ? all[0] : undefined;
+  }
+
   setActiveProject(projectId: string): boolean {
     const project = this.projects.get(projectId);
 

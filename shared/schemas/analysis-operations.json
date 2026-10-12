@@ -302,6 +302,230 @@
         "details": { "type": ["string", "null"] }
       },
       "required": ["schemaVersion", "error", "code"]
+    },
+    "RelationshipType": {
+      "type": "string",
+      "enum": [
+        "DOMAIN_ASSOCIATION",
+        "INJECTION",
+        "ROUTE_TO_ACTION",
+        "RENDERS_VIEW",
+        "TAG_CALL",
+        "CONFIG_USAGE",
+        "EVENT_LISTENER"
+      ]
+    },
+    "RelationshipEndpoint": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "uri": { "type": ["string", "null"] },
+        "range": {
+          "anyOf": [
+            { "$ref": "#/definitions/AnalysisRange" },
+            { "type": "null" }
+          ]
+        },
+        "fqn": { "type": ["string", "null"] },
+        "member": { "type": ["string", "null"] }
+      },
+      "required": ["name", "kind"]
+    },
+    "GrailsRelationshipItem": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "$ref": "#/definitions/RelationshipType" },
+        "source": { "$ref": "#/definitions/RelationshipEndpoint" },
+        "target": { "$ref": "#/definitions/RelationshipEndpoint" },
+        "origin": { "$ref": "#/definitions/OriginKind" },
+        "resolution": { "$ref": "#/definitions/ResolutionKind" },
+        "evidence": {
+          "anyOf": [
+            { "$ref": "#/definitions/AnalysisEvidence" },
+            { "type": "null" }
+          ]
+        },
+        "details": { "type": "object" }
+      },
+      "required": ["id", "type", "source", "target", "origin", "resolution"]
+    },
+    "GrailsRelationshipsRequest": {
+      "type": "object",
+      "properties": {
+        "projectUri": { "type": "string" },
+        "sourceUri": { "type": ["string", "null"] },
+        "targetUri": { "type": ["string", "null"] },
+        "uri": { "type": ["string", "null"] },
+        "types": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "depth": { "type": ["integer", "null"], "minimum": 1, "maximum": 10, "default": 1 },
+        "direction": { "type": ["string", "null"], "enum": ["outbound", "inbound", "both", null], "default": "both" },
+        "limit": { "type": ["integer", "null"], "minimum": 1, "maximum": 500, "default": 100 },
+        "maxPayloadBytes": { "type": ["integer", "null"], "minimum": 1024, "maximum": 262144, "default": 65536 },
+        "cursor": { "type": ["string", "null"] }
+      },
+      "required": ["projectUri"]
+    },
+    "GrailsRelationshipsResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "projectUri": { "type": "string" },
+        "analysisRevision": { "type": "string" },
+        "freshness": { "$ref": "#/definitions/Freshness" },
+        "completeness": { "$ref": "#/definitions/Completeness" },
+        "relationships": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/GrailsRelationshipItem" }
+        },
+        "nextCursor": { "type": ["string", "null"] },
+        "totalEstimated": { "type": "integer", "minimum": 0 },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "projectUri",
+        "analysisRevision",
+        "freshness",
+        "completeness",
+        "relationships",
+        "totalEstimated",
+        "limitations"
+      ]
+    },
+    "ChangeReviewStatus": {
+      "type": "string",
+      "enum": ["ready", "stale_buffer", "stale_dependency", "checks_failed", "partial_edits", "unverified"]
+    },
+    "ChangeSafetyVerdict": {
+      "type": "string",
+      "enum": ["SAFE_TO_APPLY", "REQUIRES_ATTENTION", "UNSAFE_TO_APPLY", "STALE_REVIEW"]
+    },
+    "ChangeEditsSummary": {
+      "type": "object",
+      "properties": {
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "totalEdits": { "type": "integer", "minimum": 0 },
+        "hasCollisions": { "type": "boolean" },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["totalFiles", "totalEdits", "files"]
+    },
+    "ChangeImpactSummary": {
+      "type": "object",
+      "properties": {
+        "impactedCount": { "type": "integer", "minimum": 0 },
+        "dynamicUnknownsCount": { "type": "integer", "minimum": 0 },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "dynamicUnknowns": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["impactedCount", "dynamicUnknownsCount", "artifacts", "dynamicUnknowns"]
+    },
+    "ChangeChecksSummary": {
+      "type": "object",
+      "properties": {
+        "checkStatus": { "type": "string" },
+        "testsTotal": { "type": "integer", "minimum": 0 },
+        "testsPassed": { "type": "integer", "minimum": 0 },
+        "testsFailed": { "type": "integer", "minimum": 0 },
+        "testsSkipped": { "type": "integer", "minimum": 0 },
+        "compilationSuccess": { "type": "boolean" },
+        "errorCount": { "type": "integer", "minimum": 0 },
+        "warningCount": { "type": "integer", "minimum": 0 }
+      },
+      "required": [
+        "checkStatus",
+        "testsTotal",
+        "testsPassed",
+        "testsFailed",
+        "testsSkipped",
+        "compilationSuccess",
+        "errorCount",
+        "warningCount"
+      ]
+    },
+    "ChangeReviewRequest": {
+      "type": "object",
+      "properties": {
+        "projectUri": { "type": "string" },
+        "changeId": { "type": ["string", "null"] },
+        "edits": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "impact": { "type": ["object", "null"] },
+        "checks": { "type": ["object", "null"] },
+        "assumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["projectUri"]
+    },
+    "ChangeReviewResponse": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "changeId": { "type": "string" },
+        "projectUri": { "type": "string" },
+        "analysisRevision": { "type": "string" },
+        "freshness": { "type": "string" },
+        "status": { "$ref": "#/definitions/ChangeReviewStatus" },
+        "safetyVerdict": { "$ref": "#/definitions/ChangeSafetyVerdict" },
+        "editsSummary": { "$ref": "#/definitions/ChangeEditsSummary" },
+        "edits": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "impactSummary": { "$ref": "#/definitions/ChangeImpactSummary" },
+        "checksSummary": {
+          "anyOf": [
+            { "$ref": "#/definitions/ChangeChecksSummary" },
+            { "type": "null" }
+          ]
+        },
+        "uncheckedAssumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "recoveryActions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "changeId",
+        "projectUri",
+        "analysisRevision",
+        "freshness",
+        "status",
+        "safetyVerdict",
+        "editsSummary",
+        "uncheckedAssumptions",
+        "recoveryActions",
+        "limitations"
+      ]
     }
   }
 }

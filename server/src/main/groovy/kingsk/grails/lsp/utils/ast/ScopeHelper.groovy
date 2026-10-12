@@ -20,27 +20,27 @@ import org.codehaus.groovy.ast.stmt.Statement
  */
 @CompileStatic
 class ScopeHelper {
-	
+
 	/** Data class for scope completion items */
 	static class ScopeItems {
 		final List<Variable> variables = []
 		final List<Parameter> parameters = []
 		final MemberExtractor.CompletionItems members = new MemberExtractor.CompletionItems()
 	}
-	
+
 	/** Enum for specifying what to collect */
 	enum CollectionType {
 		ALL, VARIABLES_ONLY, PARAMETERS_ONLY, MEMBERS_ONLY
 	}
-	
+
 	/**
 	 * Main entry point - collects variables visible from the given offset node
 	 */
 	static ScopeItems collectScopeItems(ASTNode offsetNode, GrailsASTVisitor visitor, CollectionType type = CollectionType.ALL) {
 		if (!offsetNode) return new ScopeItems()
-		
+
 		ScopeItems items = new ScopeItems()
-		
+
 		// Start scope traversal from the appropriate node
 		ASTNode startNode = offsetNode
 		if (offsetNode instanceof MethodNode || offsetNode instanceof Statement) {
@@ -49,31 +49,32 @@ class ScopeHelper {
 			// For other nodes, find the enclosing scope
 			collectFromScope(startNode, visitor, items, type)
 		}
-		
+
 		return items
 	}
-	
+
 	// Convenience methods for specific item types
-	
+
 	static List<Variable> getVariables(ASTNode offsetNode, GrailsASTVisitor visitor) {
 		return collectScopeItems(offsetNode, visitor, CollectionType.VARIABLES_ONLY).variables
 	}
-	
+
 	static List<Parameter> getParameters(ASTNode offsetNode, GrailsASTVisitor visitor) {
 		return collectScopeItems(offsetNode, visitor, CollectionType.PARAMETERS_ONLY).parameters
 	}
-	
+
 	static MemberExtractor.CompletionItems getMembers(ASTNode offsetNode, GrailsASTVisitor visitor) {
 		return collectScopeItems(offsetNode, visitor, CollectionType.MEMBERS_ONLY).members
 	}
-	
+
 	// === PRIVATE IMPLEMENTATION ===
-	
+
 	private static void collectFromScope(ASTNode node, GrailsASTVisitor visitor, ScopeItems items, CollectionType type) {
 		Set<String> seen = new HashSet<>()
 		ASTNode current = node
-		
-		while (current) {
+		Set<ASTNode> visited = new HashSet<>()
+
+		while (current != null && visited.add(current)) {
 			if (current instanceof ClassNode) {
 				ClassNode classNode = (ClassNode) current
 				if (type == CollectionType.ALL || type == CollectionType.MEMBERS_ONLY) {
@@ -104,10 +105,10 @@ class ScopeHelper {
 			current = visitor.getParent(current)
 		}
 	}
-	
+
 	private static void collectFromVariableScope(VariableScope variableScope, ScopeItems items, Set<String> existingNames) {
 		if (!variableScope?.declaredVariables) return
-		
+
 		variableScope.declaredVariables.values().each { Variable variable ->
 			String variableName = variable.name
 			if (!existingNames.contains(variableName)) {
@@ -116,7 +117,7 @@ class ScopeHelper {
 			}
 		}
 	}
-	
+
 	private static void collectMethodParameters(MethodNode method, ScopeItems items, Set<String> existingNames) {
 		Parameter[] params = method.parameters
 		if (params) {
@@ -128,7 +129,7 @@ class ScopeHelper {
 			}
 		}
 	}
-	
+
 	private static void collectClosureParameters(ClosureExpression closure, ScopeItems items, Set<String> existingNames) {
 		Parameter[] params = closure.parameters
 		if (params) {
@@ -144,7 +145,7 @@ class ScopeHelper {
 			items.parameters << new Parameter(ClassHelper.OBJECT_TYPE, 'it')
 		}
 	}
-	
+
 	private static void collectClassMembers(ClassNode classNode, ScopeItems items) {
 		// Use MemberExtractor to get class members (non-static for instance access)
 		def members = MemberExtractor.collectMembers(classNode, false, classNode)

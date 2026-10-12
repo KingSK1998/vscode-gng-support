@@ -39,17 +39,18 @@ class GrailsCompletionProvider extends BaseProvider {
             try {
                 checkCancellation(token)
                 ctx = createRequestContext(textDocument.uri)
-                
+
                 String uri = textDocument.uri
                 def textFile = providerContext.fileTracker.getTextFile(uri)
                 if (!textFile) return (Either<List<CompletionItem>, CompletionList>) Either.forLeft([] as List<CompletionItem>)
 
                 // 1. Resolve prefix and AST context
                 String prefix = CompletionProcessor.extractPrefix(textFile.text, position)
-                
+
                 def offsetNode = getNodeAtPosition(ctx, position)
                 def parentNode = offsetNode ? ctx.ast()?.getParent(offsetNode) : null
-                
+                log.info("[COMPLETION_DEBUG] uri=${uri} pos=${position.line}:${position.character} prefix='${prefix}' offsetNode=${offsetNode?.class?.simpleName} text=${offsetNode?.text} parentNode=${parentNode?.class?.simpleName}")
+
                 // 2. Build Request
                 def request = new CompletionRequest(
                     uri, offsetNode, parentNode, prefix,
@@ -64,13 +65,13 @@ class GrailsCompletionProvider extends BaseProvider {
                 List<CompletionItem> processedItems = CompletionProcessor.processCompletions(rawItems, prefix)
 
                 // 5. Build Result
-                boolean isIncomplete = rawItems.size() > processedItems.size() || 
+                boolean isIncomplete = rawItems.size() > processedItems.size() ||
                                      processedItems.size() >= CompletionProcessor.getMaxResults(prefix)
 
                 log.info("[COMPLETION] uri=${uri} prefix='${prefix}' items=${processedItems.size()} time=${System.currentTimeMillis() - startTime}ms")
-                
-                return isIncomplete ? 
-                    (Either<List<CompletionItem>, CompletionList>) Either.forRight(new CompletionList(isIncomplete, processedItems)) : 
+
+                return isIncomplete ?
+                    (Either<List<CompletionItem>, CompletionList>) Either.forRight(new CompletionList(isIncomplete, processedItems)) :
                     (Either<List<CompletionItem>, CompletionList>) Either.forLeft(processedItems)
             } finally {
                 ctx?.close()

@@ -1,4 +1,4 @@
-import type { Disposable, Event, Task, TaskProvider } from "vscode";
+import type { CancellationToken, Disposable, Event, Task, TaskProvider } from "vscode";
 // https://github.com/microsoft/vscode-gradle/blob/develop/API.md
 
 export declare class Api {
@@ -60,9 +60,42 @@ interface Output {
   getOutputBytes_asU8(): Uint8Array;
 }
 
+/** Execution failure reasons for actionable error reporting */
+export type ExecutionFailureReason =
+  | "WORKSPACE_UNTRUSTED"
+  | "JAVA_MISSING"
+  | "WRAPPER_MISSING"
+  | "PORT_CONFLICT"
+  | "EXECUTION_FAILED"
+  | "CANCELLED"
+  | "TIMEOUT";
+
+export interface TaskExecutionOptions {
+  args?: string[] | undefined;
+  cancellationToken?: CancellationToken | undefined;
+  onOutput?: ((chunk: string) => void) | undefined;
+  env?: Record<string, string> | undefined;
+  portCheck?: number | undefined;
+}
+
+export interface TaskExecutionResult {
+  success: boolean;
+  exitCode?: number | undefined;
+  error?: string | undefined;
+  failureReason?: ExecutionFailureReason | undefined;
+  actionableAdvice?: string | undefined;
+  output?: string | undefined;
+  noTests?: boolean | undefined;
+  testsPassed?: number | undefined;
+  testsFailed?: number | undefined;
+  testsSkipped?: number | undefined;
+}
+
 /** Common Grails tasks for quick access */
 export enum GrailsTask {
+  BootRun = "bootRun",
   RunApp = "run-app",
+  Test = "test",
   TestApp = "test-app",
   CreateController = "create-controller",
   CreateService = "create-service",
@@ -70,5 +103,6 @@ export enum GrailsTask {
   Build = "build",
   Clean = "clean",
   Compile = "compile",
+  CompileGroovy = "compileGroovy",
   War = "war",
 }

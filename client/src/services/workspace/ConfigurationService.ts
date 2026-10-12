@@ -123,7 +123,7 @@ export class ConfigurationService implements Disposable {
 
   /* ================= HELPERS ====================================== */
 
-  private get<T>(key: string, defaultValue: T): T {
+  get<T>(key: string, defaultValue: T): T {
     return workspace.getConfiguration(CONFIG_SECTION).get<T>(key, defaultValue);
   }
 

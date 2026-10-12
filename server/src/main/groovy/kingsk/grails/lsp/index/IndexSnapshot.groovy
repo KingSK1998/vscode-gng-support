@@ -3,12 +3,13 @@ package kingsk.grails.lsp.index
 import groovy.transform.CompileStatic
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
+import kingsk.grails.lsp.core.analysis.GrailsRelationshipItem
 import kingsk.grails.lsp.model.types.TextFile
 import java.util.Collections
 
 @CompileStatic
 class IndexSnapshot {
-    static final IndexSnapshot EMPTY = new IndexSnapshot([:], [:], [:])
+    static final IndexSnapshot EMPTY = new IndexSnapshot([:], [:], [:], [])
     
     // Primary lookup: descriptor → SymbolInfo (cross-file, O(1))
     final Map<String, SymbolInfo> byDescriptor
@@ -18,11 +19,68 @@ class IndexSnapshot {
 
     // Reference lookup: name → List of references (usages)
     final Map<String, List<ReferenceInfo>> referencesByName
+
+    // Evidenced Grails relationships (R4-02): compact value items
+    final List<GrailsRelationshipItem> relationships
+    final Map<String, List<GrailsRelationshipItem>> relationshipsBySourceUri
+    final Map<String, List<GrailsRelationshipItem>> relationshipsByTargetUri
     
-    IndexSnapshot(Map<String, SymbolInfo> byDescriptor, Map<String, List<SymbolInfo>> byUri, Map<String, List<ReferenceInfo>> referencesByName = [:]) {
+    IndexSnapshot(Map<String, SymbolInfo> byDescriptor, Map<String, List<SymbolInfo>> byUri,
+                  Map<String, List<ReferenceInfo>> referencesByName = [:],
+                  List<GrailsRelationshipItem> relationships = []) {
         this.byDescriptor = Collections.unmodifiableMap(byDescriptor)
         this.byUri = Collections.unmodifiableMap(byUri)
         this.referencesByName = Collections.unmodifiableMap(referencesByName)
+        this.relationships = Collections.unmodifiableList(new ArrayList<GrailsRelationshipItem>(relationships))
+
+        Map<String, List<GrailsRelationshipItem>> bySrc = new HashMap<>()
+        Map<String, List<GrailsRelationshipItem>> byTgt = new HashMap<>()
+        for (GrailsRelationshipItem rel : relationships) {
+            if (rel.source?.uri) {
+                bySrc.computeIfAbsent(rel.source.uri, { k -> [] }).add(rel)
+                String norm = TextFile.normalizePath(rel.source.uri)
+                if (norm && norm != rel.source.uri) {
+                    bySrc.computeIfAbsent(norm, { k -> [] }).add(rel)
+                }
+            }
+            if (rel.target?.uri) {
+                byTgt.computeIfAbsent(rel.target.uri, { k -> [] }).add(rel)
+                String norm = TextFile.normalizePath(rel.target.uri)
+                if (norm && norm != rel.target.uri) {
+                    byTgt.computeIfAbsent(norm, { k -> [] }).add(rel)
+                }
+            }
+        }
+        this.relationshipsBySourceUri = Collections.unmodifiableMap(bySrc)
+        this.relationshipsByTargetUri = Collections.unmodifiableMap(byTgt)
+    }
+
+    List<GrailsRelationshipItem> getRelationships() {
+        return relationships
+    }
+
+    List<GrailsRelationshipItem> getRelationshipsBySourceUri(String uri) {
+        if (!uri) return []
+        List<GrailsRelationshipItem> direct = relationshipsBySourceUri[uri]
+        if (direct != null) return direct
+        String norm = TextFile.normalizePath(uri)
+        if (norm && norm != uri) {
+            List<GrailsRelationshipItem> normalized = relationshipsBySourceUri[norm]
+            if (normalized != null) return normalized
+        }
+        return []
+    }
+
+    List<GrailsRelationshipItem> getRelationshipsByTargetUri(String uri) {
+        if (!uri) return []
+        List<GrailsRelationshipItem> direct = relationshipsByTargetUri[uri]
+        if (direct != null) return direct
+        String norm = TextFile.normalizePath(uri)
+        if (norm && norm != uri) {
+            List<GrailsRelationshipItem> normalized = relationshipsByTargetUri[norm]
+            if (normalized != null) return normalized
+        }
+        return []
     }
     
     SymbolInfo getSymbolAt(String uri, Position pos) {

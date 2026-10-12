@@ -255,11 +255,16 @@ void test("R3-02/1: Language model tools registration and disposal lifecycle", (
 
   try {
     const disposable = service.registerLanguageModelTools();
-    equal(registeredTools.size, 4);
+    equal(registeredTools.size, 9);
     ok(registeredTools.has("grails_project_capabilities"));
     ok(registeredTools.has("grails_symbols_search"));
     ok(registeredTools.has("grails_symbols_explain"));
     ok(registeredTools.has("grails_project_diagnostics"));
+    ok(registeredTools.has("grails_relationships"));
+    ok(registeredTools.has("grails_change_impact"));
+    ok(registeredTools.has("grails_refactor_preview"));
+    ok(registeredTools.has("grails_checks_run"));
+    ok(registeredTools.has("grails_change_review"));
 
     disposable.dispose();
     equal(registeredTools.size, 0);

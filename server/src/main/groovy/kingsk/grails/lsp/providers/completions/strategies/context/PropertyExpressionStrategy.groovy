@@ -26,35 +26,41 @@ import org.eclipse.lsp4j.CompletionItem
  */
 @CompileStatic
 class PropertyExpressionStrategy extends BaseCompletionStrategy {
-	
+
 	@Override
 	int getPriority() { return 90 }
-	
+
 	@Override
 	CompletionTarget target() { return CompletionTarget.BOTH }
-	
+
 	@Override
 	boolean canHandle(CompletionRequest request, RequestContext ctx) {
 		request.offsetNode instanceof PropertyExpression || request.parentNode instanceof PropertyExpression
 	}
-	
+
 	@Override
 	List<CompletionItem> provideCompletions(CompletionRequest request, RequestContext ctx) {
 		List<CompletionItem> completions = []
-		if (request.offsetNode instanceof PropertyExpression) {
+		if (request.parentNode instanceof PropertyExpression && ((PropertyExpression) request.parentNode).objectExpression == request.offsetNode) {
+			provideCompletionsInternal((PropertyExpression) request.parentNode, request, ctx, completions)
+		} else if (request.offsetNode instanceof PropertyExpression) {
 			provideCompletionsInternal((PropertyExpression) request.offsetNode, request, ctx, completions)
 		} else if (request.parentNode instanceof PropertyExpression) {
 			provideCompletionsInternal((PropertyExpression) request.parentNode, request, ctx, completions)
 		}
 		return completions
 	}
-	
+
 	private void provideCompletionsInternal(PropertyExpression propExpr, CompletionRequest request, RequestContext ctx, List<CompletionItem> completions) {
 		Expression objectExpression = propExpr.objectExpression
 		if (!objectExpression) return
-		
+
 		// 1. Grails special conventions on variable expressions (params, g, config, injected service)
 		if (request.isGrailsProject) {
+			if (propExpr.text == 'grailsApplication.config' || (propExpr.propertyAsString == 'config' && propExpr.objectExpression?.text == 'grailsApplication')) {
+				completions.addAll(GrailsConfigCapabilityAdapter.INSTANCE.getConfigCompletions())
+				return
+			}
 			if (objectExpression instanceof VariableExpression) {
 				String varName = ((VariableExpression) objectExpression).name
 				if (varName == 'params') {
@@ -80,9 +86,6 @@ class PropertyExpressionStrategy extends BaseCompletionStrategy {
 
 		ClassNode objectType = getTypeOf(objectExpression, ctx)
 		if (!objectType) return
-		
-		addMemberCompletions(objectExpression, ctx, completions)
-		
 
 		boolean isStaticAccess = objectExpression instanceof ClassExpression ||
 			(objectExpression instanceof VariableExpression && ((VariableExpression) objectExpression).name == objectType.nameWithoutPackage)
@@ -106,7 +109,7 @@ class PropertyExpressionStrategy extends BaseCompletionStrategy {
 			addGrailsSpecificCompletions(objectType, request.uri, completions)
 		}
 	}
-	
+
 	private void addGrailsSpecificCompletions(ClassNode objectType, String uri, List<CompletionItem> completions) {
 		if (GrailsUtils.isGrailsArtefact(objectType, uri)) {
 			// Extract members using static helper rather than strategy method

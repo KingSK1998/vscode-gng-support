@@ -1,6 +1,6 @@
 # Agent Tool Evaluation Findings: R3-03
 
-**Date:** 2026-09-14
+**Date:** 2026-10-12
 **Benchmark:** Grails 7 / Groovy 4 Agent Tool Evaluation (24 versioned tasks, 5 iterations per task)
 **Evaluator:** Antigravity
 

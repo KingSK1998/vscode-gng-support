@@ -119,6 +119,24 @@ class MockAnalysisBackend implements AnalysisBackend {
           limitations: [],
         } as unknown as T;
 
+      case "grails.analysis.changeReview":
+        return {
+          schemaVersion: 1,
+          changeId: "change-mcp-1",
+          projectUri: (args[0] as { projectUri: string }).projectUri,
+          analysisRevision: "rev:1:dep:0",
+          freshness: "current",
+          status: "ready",
+          safetyVerdict: "SAFE_TO_APPLY",
+          editsSummary: { totalFiles: 1, totalEdits: 1, files: ["file:///workspace/test.groovy"] },
+          edits: [],
+          impactSummary: { impactedCount: 1, dynamicUnknownsCount: 0, artifacts: [], dynamicUnknowns: [] },
+          checksSummary: null,
+          uncheckedAssumptions: [],
+          recoveryActions: [],
+          limitations: [],
+        } as unknown as T;
+
       default:
         throw new Error(`Unknown command: ${command}`);
     }
@@ -180,12 +198,13 @@ void test("R3-04/1: McpServer exposes tools/list and executes all 4 typed analys
     const listResp = await getNextResponse();
     equal(listResp.id, 2);
     const listResult = listResp.result as { tools: { name: string }[] };
-    equal(listResult.tools.length, 4);
+    equal(listResult.tools.length, 5);
     const toolNames = listResult.tools.map((t) => t.name);
     ok(toolNames.includes("grails_project_capabilities"));
     ok(toolNames.includes("grails_symbols_search"));
     ok(toolNames.includes("grails_symbols_explain"));
     ok(toolNames.includes("grails_project_diagnostics"));
+    ok(toolNames.includes("grails_change_review"));
 
     // 4. tools/call: grails_project_capabilities
     send({

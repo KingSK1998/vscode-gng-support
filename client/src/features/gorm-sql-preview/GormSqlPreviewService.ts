@@ -1,8 +1,9 @@
+import * as path from "path";
 import * as vscode from "vscode";
 import type { ErrorService } from "../../services/errors/ErrorService";
 import { ErrorSeverity, ErrorSource } from "../../services/errors/errorTypes";
 import type { LanguageServerManager } from "../../services/languageServer/LanguageServerManager";
-import { createWebviewStateManager } from "../../services/webview/WebviewStateManager";
+import { createWebviewStateManager, getNonce } from "../../services/webview/WebviewStateManager";
 import { debounce } from "../../utils/DebounceUtils";
 
 interface SqlPreviewState {
@@ -49,7 +50,7 @@ export class GormSqlPreviewService implements vscode.Disposable {
     }
   }
 
-  public openPreview(uri: vscode.Uri) {
+  public openPreview(uri: vscode.Uri): void {
     if (this.currentPanel) {
       this.currentPanel.reveal(vscode.ViewColumn.Beside);
       this.debouncedRefresh(uri);
@@ -58,12 +59,12 @@ export class GormSqlPreviewService implements vscode.Disposable {
 
     this.currentPanel = vscode.window.createWebviewPanel(
       "gormSqlPreview",
-      "GORM SQL Preview",
+      `GORM SQL: ${path.basename(uri.fsPath)}`,
       vscode.ViewColumn.Beside,
       this.stateManager.getWebviewOptions()
     );
 
-    this.currentPanel.webview.html = this.getHtmlContent();
+    this.currentPanel.webview.html = this.getHtmlContent(uri);
 
     this.currentPanel.onDidDispose(
       () => {
@@ -72,6 +73,13 @@ export class GormSqlPreviewService implements vscode.Disposable {
       null,
       this.context.subscriptions
     );
+
+    this.currentPanel.webview.onDidReceiveMessage(async (message: { command: string; text?: string }) => {
+      if (message.command === "copySql" && message.text) {
+        await vscode.env.clipboard.writeText(message.text);
+        void vscode.window.showInformationMessage("SQL copied to clipboard");
+      }
+    });
 
     this.debouncedRefresh(uri);
   }
@@ -87,7 +95,10 @@ export class GormSqlPreviewService implements vscode.Disposable {
     try {
       const client = this.languageServerManager.languageClient;
       if (!client) {
-        vscode.window.showErrorMessage("Language server not running");
+        void this.currentPanel.webview.postMessage({
+          command: "updateSql",
+          sql: "-- Language server is disconnected. Cannot analyze domain class AST.",
+        });
         return;
       }
 
@@ -106,9 +117,9 @@ export class GormSqlPreviewService implements vscode.Disposable {
         return;
       }
 
-      this.currentPanel.webview.postMessage({
+      void this.currentPanel.webview.postMessage({
         command: "updateSql",
-        sql: sql ?? "-- No SQL generated.",
+        sql: (typeof sql === "string" && sql.trim().length > 0) ? sql : "-- No DDL generated for domain entity.",
       });
 
       await this.stateManager.setState({ lastUri: uri.toString() });
@@ -130,43 +141,144 @@ export class GormSqlPreviewService implements vscode.Disposable {
     }
   }
 
-  private getHtmlContent(): string {
+  public getHtmlContent(uri?: vscode.Uri): string {
+    const nonce = getNonce();
+    const fileName = uri ? path.basename(uri.fsPath) : "DomainClass.groovy";
+
     return `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>GORM SQL Preview</title>
-            <style>
-                body { margin: 0; padding: 20px; background-color: var(--vscode-editor-background); color: var(--vscode-editor-foreground); font-family: var(--vscode-editor-font-family); font-size: var(--vscode-editor-font-size); }
-                pre { background: var(--vscode-textCodeBlock-background); padding: 15px; border-radius: 8px; border: 1px solid var(--vscode-widget-border); overflow-auto; }
-                .keyword { color: #569cd6; }
-                .type { color: #4ec9b0; }
-                .comment { color: #6a9955; }
-            </style>
-        </head>
-        <body>
-            <h3>GORM SQL DDL Preview</h3>
-            <pre id="sqlOutput">-- Loading preview...</pre>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src https:;">
+  <title>GORM SQL Preview</title>
+  <style nonce="${nonce}">
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground);
+      font-family: var(--vscode-font-family, monospace);
+      font-size: var(--vscode-editor-font-size, 13px);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    .header {
+      margin-bottom: 12px;
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 6px;
+    }
+    .disclaimer-box {
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .origin-badge {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 11px;
+      opacity: 0.9;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 8px;
+    }
+    button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      padding: 6px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    button:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    button:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+    pre {
+      flex: 1;
+      margin: 0;
+      background: var(--vscode-textCodeBlock-background, #1e1e1e);
+      border: 1px solid var(--vscode-widget-border, #454545);
+      border-radius: 4px;
+      padding: 12px;
+      overflow: auto;
+      font-family: var(--vscode-editor-font-family, monospace);
+      line-height: 1.5;
+    }
+    pre:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+    @media (forced-colors: active) {
+      pre {
+        border: 1px solid CanvasText;
+      }
+      pre:focus-visible {
+        outline: 2px solid Highlight;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2>Static DDL Approximation: ${this.escapeHtml(fileName)}</h2>
+    <div class="disclaimer-box">
+      <strong>Notice:</strong> This is simulated DDL and is not executed against a live database.
+      <div class="origin-badge">Origin: Static Domain AST Analysis</div>
+    </div>
+  </div>
 
-            <script>
-                window.addEventListener('message', event => {
-                    const message = event.data;
-                    if (message.command === 'updateSql') {
-                        const output = document.getElementById('sqlOutput');
-                        output.textContent = message.sql;
-                        highlight(output);
-                    }
-                });
+  <div class="toolbar">
+    <button id="copyBtn" aria-label="Copy SQL DDL to clipboard">Copy SQL</button>
+  </div>
 
-                function highlight(el) {
-                    let text = el.textContent;
-                    text = text.replace(/(\\/\\*[\\s\\S]*?\\*\\/|--.*)/g, '<span class="comment">$1</span>');
-                    text = text.replace(/\b(CREATE|TABLE|NOT|NULL|PRIMARY|KEY|AUTO_INCREMENT|BIGINT|INT|VARCHAR|BOOLEAN|DATE|TIMESTAMP|DECIMAL)\b/g, '<span class="keyword">$1</span>');
-                    el.innerHTML = text;
-                }
-            </script>
-        </body>
-        </html>`;
+  <pre id="sqlOutput" tabindex="0" role="region" aria-label="SQL DDL Output">-- Loading preview...</pre>
+
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+
+    const copyBtn = document.getElementById('copyBtn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', () => {
+        const sql = document.getElementById('sqlOutput')?.textContent || '';
+        vscode.postMessage({ command: 'copySql', text: sql });
+      });
+    }
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg.command === 'updateSql') {
+        const output = document.getElementById('sqlOutput');
+        if (output) {
+          output.textContent = msg.sql;
+        }
+      }
+    });
+  </script>
+</body>
+</html>`;
+  }
+
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 }

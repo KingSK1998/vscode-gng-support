@@ -7,7 +7,7 @@ import kingsk.grails.lsp.model.types.TextFile
 import kingsk.grails.lsp.utils.position.RangeHelper
 import org.codehaus.groovy.ast.*
 import org.codehaus.groovy.ast.expr.*
-import org.codehaus.groovy.ast.stmt.ExpressionStatement
+import org.codehaus.groovy.ast.stmt.*
 import org.eclipse.lsp4j.Position
 import org.eclipse.lsp4j.Range
 
@@ -26,11 +26,19 @@ class GrailsASTHelper {
      * @return ClassNode representing the resolved type, or null if not resolvable.
      */
     static ClassNode getTypeOfNode(ASTNode node, GrailsASTVisitor visitor) {
+        ClassNode rawType = resolveTypeOfNodeInternal(node, visitor)
+        if (rawType != null && visitor != null && rawType != ClassHelper.OBJECT_TYPE && rawType != ClassHelper.DYNAMIC_TYPE && rawType != ClassHelper.VOID_TYPE) {
+            ClassNode resolved = tryToResolveOriginalClassNode(rawType, false, visitor)
+            if (resolved != null) return resolved
+        }
+        return rawType
+    }
+
+    private static ClassNode resolveTypeOfNodeInternal(ASTNode node, GrailsASTVisitor visitor) {
         switch (node) {
             case BinaryExpression: return resolveBinaryExpressionType(node, visitor)
             case ClassExpression: return node.type // expression: SomeClass.someProp
             case ConstructorCallExpression: return node.type
-            case MethodCallExpression: return getMethodFromCallExpression(node, visitor)?.returnType ?: node.type
             case MethodCallExpression:
                 MethodNode methodNode = getMethodFromCallExpression(node, visitor)
                 if (methodNode != null && methodNode.returnType != null && methodNode.returnType != ClassHelper.OBJECT_TYPE) {
@@ -191,9 +199,10 @@ class GrailsASTHelper {
             return null
         }
 
-        if ((definitionNode instanceof Variable) && currentPosition) {
-            ClassNode variableType = tryToResolveOriginalClassNode(definitionNode.originType, true, visitor)
-            FieldNode variableField = (definitionNode as PropertyNode).field
+        if ((definitionNode instanceof PropertyNode) && currentPosition) {
+            PropertyNode propNode = (PropertyNode) definitionNode
+            ClassNode variableType = tryToResolveOriginalClassNode(propNode.originType, true, visitor)
+            FieldNode variableField = propNode.field
             Range typeRange = !variableType ? null : ASTUtils.astNodeToRange(variableType)
             Range fieldRange = !variableField ? null : ASTUtils.astNodeToRange(variableField)
 
@@ -201,7 +210,7 @@ class GrailsASTHelper {
             if (fieldRange && RangeHelper.contains(fieldRange, currentPosition)) {
                 definitionNode = variableField
             } else if (typeRange && RangeHelper.contains(typeRange, currentPosition)) {
-                definitionNode = variableField
+                definitionNode = variableField ?: definitionNode
             }
         }
 
@@ -327,40 +336,60 @@ class GrailsASTHelper {
             if (propName == 'errors') {
                 return ClassHelper.make('org.springframework.validation.Errors')
             }
-            FieldNode hasManyField = objType.getField('hasMany')
-            if (hasManyField != null && hasManyField.hasInitialExpression() && hasManyField.initialExpression instanceof MapExpression) {
-                MapExpression map = (MapExpression) hasManyField.initialExpression
-                for (MapEntryExpression entry : map.mapEntryExpressions) {
+            Expression hasManyExpr = findStaticFieldInitialExpression(objType, 'hasMany')
+            if (hasManyExpr instanceof MapExpression) {
+                for (MapEntryExpression entry : ((MapExpression) hasManyExpr).mapEntryExpressions) {
                     if (entry.keyExpression.text == propName) {
                         return ClassHelper.make(Set.class)
                     }
                 }
             }
-            FieldNode hasOneField = objType.getField('hasOne')
-            if (hasOneField != null && hasOneField.hasInitialExpression() && hasOneField.initialExpression instanceof MapExpression) {
-                MapExpression map = (MapExpression) hasOneField.initialExpression
-                for (MapEntryExpression entry : map.mapEntryExpressions) {
-                    if (entry.keyExpression.text == propName) {
-                        if (entry.valueExpression instanceof ClassExpression) {
-                            return ((ClassExpression) entry.valueExpression).type
-                        }
+            Expression hasOneExpr = findStaticFieldInitialExpression(objType, 'hasOne')
+            if (hasOneExpr instanceof MapExpression) {
+                for (MapEntryExpression entry : ((MapExpression) hasOneExpr).mapEntryExpressions) {
+                    if (entry.keyExpression.text == propName && entry.valueExpression instanceof ClassExpression) {
+                        return ((ClassExpression) entry.valueExpression).type
                     }
                 }
             }
-            FieldNode belongsToField = objType.getField('belongsTo')
-            if (belongsToField != null && belongsToField.hasInitialExpression() && belongsToField.initialExpression instanceof MapExpression) {
-                MapExpression map = (MapExpression) belongsToField.initialExpression
-                for (MapEntryExpression entry : map.mapEntryExpressions) {
-                    if (entry.keyExpression.text == propName) {
-                        if (entry.valueExpression instanceof ClassExpression) {
-                            return ((ClassExpression) entry.valueExpression).type
-                        }
+            Expression belongsToExpr = findStaticFieldInitialExpression(objType, 'belongsTo')
+            if (belongsToExpr instanceof MapExpression) {
+                for (MapEntryExpression entry : ((MapExpression) belongsToExpr).mapEntryExpressions) {
+                    if (entry.keyExpression.text == propName && entry.valueExpression instanceof ClassExpression) {
+                        return ((ClassExpression) entry.valueExpression).type
                     }
                 }
             }
         }
 
         return node.type
+    }
+
+    private static Expression findStaticFieldInitialExpression(ClassNode classNode, String fieldName) {
+        if (classNode == null || !fieldName) return null
+        FieldNode field = classNode.getField(fieldName)
+        if (field?.hasInitialExpression()) return field.initialExpression
+        PropertyNode prop = classNode.getProperty(fieldName)
+        if (prop?.hasInitialExpression()) return prop.initialExpression
+        if (field?.initialExpression != null) return field.initialExpression
+        if (prop?.initialExpression != null) return prop.initialExpression
+
+        for (MethodNode method : classNode.methods) {
+            if (method.name == '<clinit>' && method.code instanceof BlockStatement) {
+                for (Statement stmt : ((BlockStatement) method.code).statements) {
+                    if (stmt instanceof ExpressionStatement) {
+                        Expression expr = ((ExpressionStatement) stmt).expression
+                        if (expr instanceof BinaryExpression && ((BinaryExpression) expr).operation.text == '=') {
+                            BinaryExpression bin = (BinaryExpression) expr
+                            if (bin.leftExpression.text == fieldName || bin.leftExpression.text.endsWith('.' + fieldName)) {
+                                return bin.rightExpression
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null
     }
 
     static ClassNode resolveVariableType(Variable variable, GrailsASTVisitor visitor) {
@@ -397,7 +426,17 @@ class GrailsASTHelper {
                     if (candidate instanceof DeclarationExpression) {
                         DeclarationExpression decl = (DeclarationExpression) candidate
                         if (decl.variableExpression?.name == varExpr.name) {
-                            return decl.variableExpression.originType ?: decl.variableExpression.type
+                            ClassNode declaredType = decl.variableExpression.originType ?: decl.variableExpression.type
+                            if (declaredType != null && declaredType != ClassHelper.OBJECT_TYPE && declaredType != ClassHelper.DYNAMIC_TYPE) {
+                                return declaredType
+                            }
+                            if (decl.rightExpression != null) {
+                                ClassNode inferred = getTypeOfNode(decl.rightExpression, visitor)
+                                if (inferred != null && inferred != ClassHelper.OBJECT_TYPE) {
+                                    return inferred
+                                }
+                            }
+                            return declaredType
                         }
                     }
                 }
@@ -414,6 +453,29 @@ class GrailsASTHelper {
                     return getTypeOfNode(parentNode.rightExpression, visitor)
                 }
             }
+            def allNodes = visitor.getNodes(null)
+            if (allNodes) {
+                for (ASTNode candidate : allNodes) {
+                    if (candidate instanceof DeclarationExpression) {
+                        DeclarationExpression decl = (DeclarationExpression) candidate
+                        if (decl.variableExpression?.name == variable.name && decl.rightExpression != null) {
+                            ClassNode inferred = getTypeOfNode(decl.rightExpression, visitor)
+                            if (inferred != null && inferred != ClassHelper.OBJECT_TYPE && inferred != ClassHelper.DYNAMIC_TYPE) {
+                                return inferred
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (variable instanceof VariableExpression) {
+            VariableExpression varExpr = (VariableExpression) variable
+            ClassNode matchedClass = visitor?.classNodes?.find {
+                it.name == varExpr.name || it.nameWithoutPackage == varExpr.name
+            }
+            if (matchedClass != null) {
+                return matchedClass
+            }
         }
         return variable.originType ?: variable.type
     }
@@ -422,14 +484,16 @@ class GrailsASTHelper {
         if (!node) return null
 
         // Step 1: Check current AST first (fast path)
-        def originalNode = visitor.classNodes.find { it == node }
+        def originalNode = visitor?.classNodes?.find {
+            it == node || it.name == node.name || (!node.name.contains('.') && it.nameWithoutPackage == node.name)
+        }
         if (originalNode) {
             log.debug "Original node found in current AST: ${originalNode.nameWithoutPackage}"
             return originalNode
         }
 
         // Step 2: Try cross-file resolution for Grails artifacts
-        if (!strict) {
+        if (!strict && visitor?.service != null) {
             ClassNode crossFileNode = tryToResolveFromRelatedFiles(node.name, visitor.service)
             if (crossFileNode) {
                 log.debug "Original node found in related files: ${crossFileNode.nameWithoutPackage}"

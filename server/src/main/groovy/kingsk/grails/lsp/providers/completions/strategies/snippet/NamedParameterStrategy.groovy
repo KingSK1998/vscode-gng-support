@@ -42,7 +42,7 @@ class NamedParameterStrategy extends BaseCompletionStrategy {
 
         def visitor = ctx.ast() as GrailsASTVisitor
         List<MethodNode> methods = GrailsASTHelper.getMethodOverloadsFromCallExpression(methodCall, visitor)
-        
+
         if (!methods && request.isGrailsProject) {
              String name = methodCall.methodAsString
              if (name in ['render', 'redirect', 'respond', 'forward']) {
@@ -68,13 +68,14 @@ class NamedParameterStrategy extends BaseCompletionStrategy {
                 }
             }
         }
-        
+
         return completions
     }
 
     private MethodCallExpression getEnclosingMethodCall(ASTNode node, RequestContext ctx) {
         ASTNode current = node
-        while (current != null) {
+        Set<ASTNode> visited = new HashSet<>()
+        while (current != null && visited.add(current)) {
             if (current instanceof ArgumentListExpression || current instanceof org.codehaus.groovy.ast.expr.TupleExpression) {
                 ASTNode parent = ctx.ast().getParent(current)
                 if (parent instanceof MethodCallExpression) {

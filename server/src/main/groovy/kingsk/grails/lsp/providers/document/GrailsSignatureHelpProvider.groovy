@@ -37,7 +37,7 @@ class GrailsSignatureHelpProvider extends BaseProvider {
                 checkCancellation(token)
                 ctx = createRequestContext(textDocument.uri)
                 def offset = getNodeAtPosition(ctx, position)
-                
+
                 if (!offset) {
                     return null
                 }
@@ -61,7 +61,7 @@ class GrailsSignatureHelpProvider extends BaseProvider {
 
                 checkCancellation(token)
                 def methods = GrailsASTHelper.getMethodOverloadsFromCallExpression(methodCall, (GrailsASTVisitor) ctx.ast())
-                
+
                 List<SignatureInformation> information = methods.collect { MethodNode method ->
                     def label = ASTUtils.astNodeToName(method)
                     def documentation = DocumentationHelper.getDocumentation(method, ctx.grailsProject()?.isGrailsProject ?: false, (GrailsASTVisitor) ctx.ast(), DocumentationType.HOVER)
@@ -69,8 +69,10 @@ class GrailsSignatureHelpProvider extends BaseProvider {
                         def paramName = ASTUtils.astNodeToName(param)
                         def paramDocs = DocumentationHelper.getDocumentation(method, ctx.grailsProject()?.isGrailsProject ?: false, (GrailsASTVisitor) ctx.ast(), DocumentationType.HOVER)
                         new ParameterInformation(paramName, paramDocs?.value)
+                        new ParameterInformation(paramName, paramDocs)
                     }
                     new SignatureInformation(label, documentation?.value, parameters)
+                    new SignatureInformation(label, documentation, parameters)
                 }
 
                 int activeParamIndex = getActiveParameter(methodCall, position)
@@ -85,6 +87,6 @@ class GrailsSignatureHelpProvider extends BaseProvider {
     }
 
     private int getActiveParameter(MethodCall methodCall, Position position) {
-        0 
+        0
     }
 }

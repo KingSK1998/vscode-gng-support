@@ -10,10 +10,24 @@ import kingsk.grails.lsp.context.ProjectContextImpl
 import kingsk.grails.lsp.core.analysis.AnalysisErrorCode
 import kingsk.grails.lsp.core.analysis.AnalysisErrorResponse
 import kingsk.grails.lsp.core.analysis.AnalysisOperationException
+import kingsk.grails.lsp.core.analysis.ChangeImpactRequest
+import kingsk.grails.lsp.core.analysis.ChangeImpactResponse
+import kingsk.grails.lsp.core.analysis.ChangeImpactItem
+import kingsk.grails.lsp.core.analysis.DynamicUnknownItem
+import kingsk.grails.lsp.core.analysis.ChangeReviewRequest
+import kingsk.grails.lsp.core.analysis.GrailsRelationshipsRequest
 import kingsk.grails.lsp.core.analysis.ProjectCapabilitiesRequest
 import kingsk.grails.lsp.core.analysis.ProjectDiagnosticsRequest
 import kingsk.grails.lsp.core.analysis.SymbolExplainRequest
 import kingsk.grails.lsp.core.analysis.SymbolSearchRequest
+import kingsk.grails.lsp.core.refactor.DocumentPrecondition
+import kingsk.grails.lsp.core.refactor.RenameApplyRequest
+import kingsk.grails.lsp.core.refactor.RenameEdit
+import kingsk.grails.lsp.core.refactor.RenamePreviewRequest
+import kingsk.grails.lsp.core.check.CheckExecutionRequest
+import kingsk.grails.lsp.core.check.CheckExecutionResponse
+import kingsk.grails.lsp.core.check.CheckSummary
+import kingsk.grails.lsp.core.check.CheckScope
 import kingsk.grails.lsp.model.enums.ErrorSeverity
 import kingsk.grails.lsp.model.enums.ErrorSource
 import kingsk.grails.lsp.model.state.ProjectState
@@ -284,6 +298,333 @@ class GrailsWorkspaceService implements WorkspaceService {
                 } catch (Exception e) {
                     return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
                         e.message ?: "Internal error during projectDiagnostics",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.analysis.relationships":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    GrailsRelationshipsRequest req = new GrailsRelationshipsRequest(
+                        projectUri: argMap.projectUri as String,
+                        sourceUri: argMap.sourceUri as String,
+                        targetUri: argMap.targetUri as String,
+                        uri: argMap.uri as String,
+                        types: argMap.types != null ? (List<String>) argMap.types : [],
+                        depth: argMap.depth != null ? ((Number) argMap.depth).intValue() : null,
+                        direction: argMap.direction as String ?: "both",
+                        limit: argMap.limit != null ? ((Number) argMap.limit).intValue() : null,
+                        maxPayloadBytes: argMap.maxPayloadBytes != null ? ((Number) argMap.maxPayloadBytes).intValue() : null,
+                        cursor: argMap.cursor as String
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeRelationships(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during relationships",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.analysis.changeImpact":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    ChangeImpactRequest req = new ChangeImpactRequest(
+                        projectUri: argMap.projectUri as String,
+                        changedUris: argMap.changedUris != null ? (List<String>) argMap.changedUris : [],
+                        changedSymbols: argMap.changedSymbols != null ? (List<String>) argMap.changedSymbols : [],
+                        depth: argMap.depth != null ? ((Number) argMap.depth).intValue() : null,
+                        limit: argMap.limit != null ? ((Number) argMap.limit).intValue() : null,
+                        maxPayloadBytes: argMap.maxPayloadBytes != null ? ((Number) argMap.maxPayloadBytes).intValue() : null,
+                        cursor: argMap.cursor as String
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeChangeImpact(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during changeImpact",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.refactor.preview":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    Map posMap = argMap.position instanceof Map ? (Map) argMap.position : [:]
+                    Position pos = new Position(
+                        posMap.line != null ? ((Number) posMap.line).intValue() : (argMap.line != null ? ((Number) argMap.line).intValue() : 0),
+                        posMap.character != null ? ((Number) posMap.character).intValue() : (argMap.character != null ? ((Number) argMap.character).intValue() : 0)
+                    )
+                    RenamePreviewRequest req = new RenamePreviewRequest(
+                        projectUri: argMap.projectUri as String,
+                        documentUri: argMap.documentUri as String,
+                        position: pos,
+                        newName: argMap.newName as String,
+                        expectedRevision: argMap.expectedRevision as String
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeRenamePreview(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during renamePreview",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.refactor.apply":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    List rawPreconditions = argMap.documentPreconditions instanceof List ? (List) argMap.documentPreconditions : []
+                    List<DocumentPrecondition> preconditions = []
+                    for (Object p : rawPreconditions) {
+                        if (p instanceof Map) {
+                            preconditions.add(new DocumentPrecondition(
+                                ((Map) p).uri as String,
+                                ((Map) p).expectedVersion != null ? ((Number) ((Map) p).expectedVersion).intValue() : null,
+                                ((Map) p).expectedHash as String
+                            ))
+                        }
+                    }
+
+                    List rawEdits = argMap.edits instanceof List ? (List) argMap.edits : []
+                    List<RenameEdit> edits = []
+                    for (Object e : rawEdits) {
+                        if (e instanceof Map) {
+                            Map rangeMap = ((Map) e).range instanceof Map ? (Map) ((Map) e).range : [:]
+                            Map startMap = rangeMap.start instanceof Map ? (Map) rangeMap.start : [:]
+                            Map endMap = rangeMap.end instanceof Map ? (Map) rangeMap.end : [:]
+                            Range r = new Range(
+                                new Position(startMap.line != null ? ((Number) startMap.line).intValue() : 0, startMap.character != null ? ((Number) startMap.character).intValue() : 0),
+                                new Position(endMap.line != null ? ((Number) endMap.line).intValue() : 0, endMap.character != null ? ((Number) endMap.character).intValue() : 0)
+                            )
+                            edits.add(new RenameEdit(
+                                ((Map) e).uri as String,
+                                ((Map) e).documentVersion != null ? ((Number) ((Map) e).documentVersion).intValue() : null,
+                                r,
+                                ((Map) e).newText as String,
+                                ((Map) e).evidence as String,
+                                ((Map) e).isEmbeddedGsp as Boolean ?: false
+                            ))
+                        }
+                    }
+
+                    RenameApplyRequest req = new RenameApplyRequest(
+                        previewId: argMap.previewId as String,
+                        projectUri: argMap.projectUri as String,
+                        documentPreconditions: preconditions,
+                        edits: edits
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeRenameApply(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during renameApply",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.checks.run":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    Map scopeMap = argMap.scope instanceof Map ? (Map) argMap.scope : [:]
+                    List rawClasses = (argMap.classes ?: scopeMap.classes) instanceof List ? (List) (argMap.classes ?: scopeMap.classes) : []
+                    List<String> classesList = []
+                    for (Object c : rawClasses) {
+                        if (c != null) classesList.add(c.toString())
+                    }
+                    List rawMethods = scopeMap.methods instanceof List ? (List) scopeMap.methods : []
+                    List<String> methodsList = []
+                    for (Object m : rawMethods) {
+                        if (m != null) methodsList.add(m.toString())
+                    }
+                    List rawTasks = scopeMap.tasks instanceof List ? (List) scopeMap.tasks : []
+                    List<String> tasksList = []
+                    for (Object t : rawTasks) {
+                        if (t != null) tasksList.add(t.toString())
+                    }
+
+                    CheckScope scope = new CheckScope(
+                        sourceSet: (argMap.sourceSet ?: scopeMap.sourceSet) as String,
+                        classes: classesList,
+                        methods: methodsList,
+                        tasks: tasksList
+                    )
+                    CheckExecutionRequest req = new CheckExecutionRequest(
+                        projectUri: argMap.projectUri as String,
+                        checkType: argMap.checkType as String,
+                        scope: scope,
+                        timeoutMs: argMap.timeoutMs != null ? ((Number) argMap.timeoutMs).longValue() : null,
+                        maxOutputBytes: argMap.maxOutputBytes != null ? ((Number) argMap.maxOutputBytes).longValue() : null,
+                        environment: argMap.environment instanceof Map ? (Map<String, String>) argMap.environment : [:]
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeChecksRun(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during checksRun",
+                        AnalysisErrorCode.INTERNAL_ERROR,
+                        e.class.name
+                    ))
+                }
+            case "grails.analysis.changeReview":
+                if (!params.arguments || params.arguments.empty) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        "Missing arguments for " + params.command,
+                        AnalysisErrorCode.INVALID_INPUT,
+                        null
+                    ))
+                }
+                try {
+                    Map argMap = parseArgumentToMap(params.arguments[0])
+                    List rawEdits = argMap.edits instanceof List ? (List) argMap.edits : []
+                    List<RenameEdit> edits = []
+                    for (Object e : rawEdits) {
+                        if (e instanceof Map) {
+                            Map rangeMap = ((Map) e).range instanceof Map ? (Map) ((Map) e).range : [:]
+                            Map startMap = rangeMap.start instanceof Map ? (Map) rangeMap.start : [:]
+                            Map endMap = rangeMap.end instanceof Map ? (Map) rangeMap.end : [:]
+                            Range r = new Range(
+                                new Position(startMap.line != null ? ((Number) startMap.line).intValue() : 0, startMap.character != null ? ((Number) startMap.character).intValue() : 0),
+                                new Position(endMap.line != null ? ((Number) endMap.line).intValue() : 0, endMap.character != null ? ((Number) endMap.character).intValue() : 0)
+                            )
+                            edits.add(new RenameEdit(
+                                ((Map) e).uri as String,
+                                ((Map) e).documentVersion != null ? ((Number) ((Map) e).documentVersion).intValue() : null,
+                                r,
+                                ((Map) e).newText as String,
+                                ((Map) e).evidence as String,
+                                ((Map) e).isEmbeddedGsp as Boolean ?: false
+                            ))
+                        }
+                    }
+
+                    ChangeImpactResponse impact = null
+                    if (argMap.impact instanceof Map) {
+                        Map impactMap = (Map) argMap.impact
+                        impact = new ChangeImpactResponse()
+                        impact.projectUri = impactMap.projectUri as String
+                        impact.analysisRevision = impactMap.analysisRevision as String
+                        impact.freshness = impactMap.freshness as String
+                        impact.completeness = impactMap.completeness as String
+                        impact.changedUris = impactMap.changedUris instanceof List ? (List<String>) impactMap.changedUris : []
+                        if (impactMap.impactedItems instanceof List) {
+                            for (Object itemObj : (List) impactMap.impactedItems) {
+                                if (itemObj instanceof Map) {
+                                    Map itemMap = (Map) itemObj
+                                    impact.impactedItems.add(new ChangeImpactItem(
+                                        itemMap.uri as String,
+                                        itemMap.name as String,
+                                        itemMap.kind as String,
+                                        itemMap.impactReason as String,
+                                        itemMap.confidence as String,
+                                        itemMap.relationshipType as String,
+                                        itemMap.depth != null ? ((Number) itemMap.depth).intValue() : 1
+                                    ))
+                                }
+                            }
+                        }
+                        if (impactMap.dynamicUnknowns instanceof List) {
+                            for (Object duObj : (List) impactMap.dynamicUnknowns) {
+                                if (duObj instanceof Map) {
+                                    Map duMap = (Map) duObj
+                                    impact.dynamicUnknowns.add(new DynamicUnknownItem(
+                                        duMap.sourceUri as String,
+                                        duMap.description as String,
+                                        duMap.risk as String,
+                                        duMap.mitigation as String
+                                    ))
+                                }
+                            }
+                        }
+                        if (impactMap.limitations instanceof List) {
+                            impact.limitations = (List<String>) impactMap.limitations
+                        }
+                    }
+
+                    CheckExecutionResponse checks = null
+                    if (argMap.checks instanceof Map) {
+                        Map checksMap = (Map) argMap.checks
+                        checks = new CheckExecutionResponse()
+                        checks.projectUri = checksMap.projectUri as String
+                        checks.checkType = checksMap.checkType as String
+                        checks.status = checksMap.status as String
+                        if (checksMap.summary instanceof Map) {
+                            Map sumMap = (Map) checksMap.summary
+                            checks.summary = new CheckSummary(
+                                testsTotal: sumMap.testsTotal != null ? ((Number) sumMap.testsTotal).intValue() : 0,
+                                testsPassed: sumMap.testsPassed != null ? ((Number) sumMap.testsPassed).intValue() : 0,
+                                testsFailed: sumMap.testsFailed != null ? ((Number) sumMap.testsFailed).intValue() : 0,
+                                testsSkipped: sumMap.testsSkipped != null ? ((Number) sumMap.testsSkipped).intValue() : 0,
+                                compilationSuccess: sumMap.compilationSuccess as Boolean ?: false,
+                                errorCount: sumMap.errorCount != null ? ((Number) sumMap.errorCount).intValue() : 0,
+                                warningCount: sumMap.warningCount != null ? ((Number) sumMap.warningCount).intValue() : 0
+                            )
+                        }
+                        if (checksMap.limitations instanceof List) {
+                            checks.limitations = (List<String>) checksMap.limitations
+                        }
+                    }
+
+                    List rawAssumptions = argMap.assumptions instanceof List ? (List) argMap.assumptions : []
+                    List<String> assumptions = []
+                    for (Object a : rawAssumptions) {
+                        if (a != null) assumptions.add(a.toString())
+                    }
+
+                    ChangeReviewRequest req = new ChangeReviewRequest(
+                        projectUri: argMap.projectUri as String,
+                        changeId: argMap.changeId as String,
+                        edits: edits,
+                        impact: impact,
+                        checks: checks,
+                        assumptions: assumptions
+                    )
+                    return CompletableFuture.completedFuture((Object) grailsService.analysisOperationService.executeChangeReview(req))
+                } catch (AnalysisOperationException e) {
+                    return CompletableFuture.completedFuture((Object) e.toResponse())
+                } catch (Exception e) {
+                    return CompletableFuture.completedFuture((Object) new AnalysisErrorResponse(
+                        e.message ?: "Internal error during changeReview",
                         AnalysisErrorCode.INTERNAL_ERROR,
                         e.class.name
                     ))

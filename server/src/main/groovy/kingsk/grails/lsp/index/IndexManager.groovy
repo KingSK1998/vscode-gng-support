@@ -2,6 +2,8 @@ package kingsk.grails.lsp.index
 
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
+import kingsk.grails.lsp.core.analysis.GrailsRelationshipItem
+import kingsk.grails.lsp.model.types.TextFile
 import org.codehaus.groovy.ast.ClassNode
 
 /**
@@ -30,6 +32,7 @@ class IndexManager {
         List<SymbolInfo> newSymbols = IndexBuilder.buildSymbols(uri, classNodes)
         List<LocalSymbolInfo> newLocals = IndexBuilder.buildLocals(uri, classNodes)
         List<ReferenceInfo> newReferences = IndexBuilder.buildReferences(uri, classNodes)
+        List<GrailsRelationshipItem> newRels = IndexBuilder.buildRelationships(uri, classNodes)
 
         while (true) {
             IndexSnapshot expected = projectIndex.getSnapshot()
@@ -66,7 +69,15 @@ class IndexManager {
                 newByUri.put(uri, newSymbols)
             }
 
-            IndexSnapshot next = new IndexSnapshot(newByDescriptor, newByUri, newReferencesByName)
+            // Update relationships (evict old outbound edges for this URI, then append new edges)
+            List<GrailsRelationshipItem> updatedRels = new ArrayList<>(expected.relationships)
+            String normUri = TextFile.normalizePath(uri)
+            updatedRels.removeIf { GrailsRelationshipItem r ->
+                r.source?.uri && (r.source.uri == uri || r.source.uri == normUri || TextFile.normalizePath(r.source.uri) == normUri)
+            }
+            updatedRels.addAll(newRels)
+
+            IndexSnapshot next = new IndexSnapshot(newByDescriptor, newByUri, newReferencesByName, updatedRels)
             if (projectIndex.compareAndCommit(expected, next)) {
                 break
             }
@@ -90,6 +101,7 @@ class IndexManager {
             Map<String, List<SymbolInfo>> newByUri = new HashMap<>(expected.byUri)
             Map<String, List<ReferenceInfo>> newReferencesByName = new HashMap<>(expected.referencesByName)
             Map<String, List<LocalSymbolInfo>> allLocals = new HashMap<>()
+            List<GrailsRelationshipItem> updatedRels = new ArrayList<>(expected.relationships)
 
             for (Map.Entry<String, List<ClassNode>> entry : allNodes.entrySet()) {
                 String uri = entry.key
@@ -98,6 +110,7 @@ class IndexManager {
                 List<SymbolInfo> newSymbols = IndexBuilder.buildSymbols(uri, classNodes)
                 List<LocalSymbolInfo> newLocals = IndexBuilder.buildLocals(uri, classNodes)
                 List<ReferenceInfo> newReferences = IndexBuilder.buildReferences(uri, classNodes)
+                List<GrailsRelationshipItem> newRels = IndexBuilder.buildRelationships(uri, classNodes)
                 allLocals.put(uri, newLocals)
 
                 // Evict old descriptors for this URI
@@ -127,12 +140,19 @@ class IndexManager {
                 } else {
                     newByUri.put(uri, newSymbols)
                 }
+
+                // Update relationships
+                String normUri = TextFile.normalizePath(uri)
+                updatedRels.removeIf { GrailsRelationshipItem r ->
+                    r.source?.uri && (r.source.uri == uri || r.source.uri == normUri || TextFile.normalizePath(r.source.uri) == normUri)
+                }
+                updatedRels.addAll(newRels)
             }
 
             // Remove empty reference lists
             newReferencesByName.entrySet().removeIf { it.value.isEmpty() }
 
-            IndexSnapshot next = new IndexSnapshot(newByDescriptor, newByUri, newReferencesByName)
+            IndexSnapshot next = new IndexSnapshot(newByDescriptor, newByUri, newReferencesByName, updatedRels)
             if (projectIndex.compareAndCommit(expected, next)) {
                 // Apply local cache and doc evictions for all modified files
                 for (Map.Entry<String, List<LocalSymbolInfo>> entry : allLocals.entrySet()) {
@@ -176,7 +196,15 @@ class IndexManager {
 
             newByUri.remove(uri)
 
-            IndexSnapshot next = new IndexSnapshot(newByDescriptor, newByUri, newReferencesByName)
+            // Evict relationships (both outbound and inbound) touching uri
+            List<GrailsRelationshipItem> updatedRels = new ArrayList<>(expected.relationships)
+            String normUri = TextFile.normalizePath(uri)
+            updatedRels.removeIf { GrailsRelationshipItem r ->
+                (r.source?.uri && (r.source.uri == uri || r.source.uri == normUri || TextFile.normalizePath(r.source.uri) == normUri)) ||
+                (r.target?.uri && (r.target.uri == uri || r.target.uri == normUri || TextFile.normalizePath(r.target.uri) == normUri))
+            }
+
+            IndexSnapshot next = new IndexSnapshot(newByDescriptor, newByUri, newReferencesByName, updatedRels)
             if (projectIndex.compareAndCommit(expected, next)) {
                 break
             }

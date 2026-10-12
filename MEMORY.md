@@ -593,5 +593,151 @@
       - Updated `docs/execution/task-queue.json`: Marked R3-04 `done`.
 - Next roadmap task: **R4-01** (Align language feature resolution).
 
+## R4-01 Acceptance and Completion Milestone (2026-10-04)
+
+- **R4-01 Completed & Accepted**:
+  - Aligned symbol and type resolution across all language providers (completion, hover, definition, references, inlay hints, signature help, rename).
+  - Unified AST type resolution in `GrailsASTHelper.getTypeOfNode` by delegating to `tryToResolveOriginalClassNode` against `visitor.classNodes` to resolve full AST definitions (containing static fields like `hasMany`, `hasOne`, `belongsTo`) from shallow compiler references.
+  - Separated static and instance completion pathways in `PropertyExpressionStrategy`.
+  - Added safe `PropertyNode` type guards in `GrailsASTHelper.getReferences`.
+  - Reinstated standard `originType` resolution for `VariableExpression` in `GrailsASTHelper.getDefinition`.
+  - Adjusted `CompletionProcessor.extractPrefix` to handle cursor positions beyond line boundaries.
+  - Full server suite: 393/393 passed (100% success rate). Client compile, check-types, lint passed.
+  - Created `docs/execution/records/R4-01.md` with `Acceptance: PASS`.
+  - Marked `R4-01` done in `docs/execution/task-queue.json`.
+
+## R4-02 Acceptance and Completion Milestone (2026-10-04)
+
+- **R4-02 Completed & Accepted**:
+  - Exposed evidenced Grails relationships connecting routes/actions, service injection, domain associations, tags, views/templates, and config via compact, evidenced facts (`INV-DISC-001/003`, `INV-OWN-004/005`, `INV-TOOL-001/003`).
+  - Added relationship models: `RelationshipType`, `RelationshipEndpoint`, `GrailsRelationshipItem`, `GrailsRelationshipsRequest`, `GrailsRelationshipsResponse`.
+  - Implemented `GrailsRelationshipExtractor` walking AST nodes deterministically.
+  - Stored relationship facts in `IndexSnapshot` with O(1) source and target URI lookups; integrated into `IndexManager` CAS loops and file eviction (`evictFile` purges all inbound and outbound edges on file removal).
+  - Implemented `AnalysisOperationService.executeRelationships` supporting BFS traversal with cycle detection, max depth (default 1, max 5), 2000-edge cap, cursor pagination, and URI/type filtering.
+  - Exposed via LSP command `grails.analysis.relationships`, client use case `GetRelationshipsUseCase`, VS Code language model tool `grails_relationships`, and MCP tool `grails_relationships`.
+  - Created `docs/execution/records/R4-02.md` with `Acceptance: PASS`.
+  - Marked `R4-02` done in `docs/execution/task-queue.json`.
+- Next roadmap task: **R4-03** (Deliver GSP embedded-language editing).
+
+## R4-03 Acceptance and Completion Milestone (2026-10-04)
+
+- **R4-03 Completed & Accepted**:
+  - Delivered complete GSP embedded-language editing architecture routing HTML, CSS, JavaScript, and Groovy regions through supported language services with 1:1 original/virtual version mapping and recoverable malformed input (`INV-EDIT-001`, `INV-STATE-004/005`, `INV-PERF-002`).
+  - Server components:
+    - Added `GspRegionType`, `GspRegion`, `GspSourceMapper`, `GspConversionResult` (`kingsk.grails.lsp.utils.gsp`).
+    - Enhanced `GspToGroovyConverter` with nested brace tracking in interpolations, multiline comment (`%{-- --}%`) and directive (`<%@ %>`) whitespace masking, UTF-16 astral surrogate pair preservation, CRLF line preservation, unclosed region recovery, and generated helper region appending implicit GSP variables (`params`, `request`, `response`, `session`, `application`, `flash`, `out`, `actionName`, `controllerName`, `grailsApplication`, `pluginContextPath`, `g`).
+    - `GspSourceMapper` enforces strict edit boundary checks, rejecting edits that touch generated helper regions or cross region boundaries (`INV-EDIT-001`).
+    - `GrailsDiagnosticService` filters out synthetic diagnostics on generated helper lines for `.gsp` documents.
+    - Tests: `GspEmbeddedLanguageSpec` passed (10/10) with end-to-end Groovy compilation of implicit variables.
+  - Client components:
+    - Implemented `GspRegionParser` extracting HTML, CSS, JavaScript, and Groovy regions with nesting support (e.g. `${user.id}` inside `<script>` or `${theme.color}` inside `<style>`).
+    - Implemented `VirtualDocumentManager` building 1:1 whitespace-masked virtual documents with version matching and cleanup on document close (`INV-PERF-002`).
+    - Implemented `GspPositionMapper` validating and mapping edits, completion items, additional edits, hovers, and formatting edits, rejecting cross-boundary edits (`INV-EDIT-001`).
+    - Implemented `GspEmbeddedLanguageService` routing completions, hovers, definitions, and formatting to appropriate language services, providing TagLib completions.
+    - Registered embedded language providers for `gsp` in `LspHandlerRegistry.ts`.
+    - Tests: `gspEmbeddedService.unit.test.ts` passed (7/7 unit tests). Full client suite passed (25/25 tests). `npm run check` passed (0 errors, 0 warnings).
+  - Created `docs/execution/records/R4-03.md` with standalone `Acceptance: PASS`.
+## R5-01 Acceptance and Completion Milestone (2026-10-12)
+
+- **R5-01 Completed & Accepted**:
+  - Conservative change impact analysis across controllers, services, domains, taglibs, views, and configuration bindings through proven relationship edges (`INV-DISC-003`, `INV-TOOL-001/003`).
+  - Server components:
+    - Models in `kingsk.grails.lsp.core.analysis`: `ChangeImpactItem`, `DynamicUnknownItem`, `VerificationSuggestion`, `ChangeImpactRequest`, `ChangeImpactResponse`.
+    - `AnalysisOperationService.executeChangeImpact`: cycle-safe BFS traversal, depth clamping (1-5), item limits (1-500), dynamic unknown identification (`DYNAMIC_DISPATCH`, dynamic GORM finders, wildcard URLs), test verification suggestions, pagination cursors.
+    - Wired in `GrailsWorkspaceService` under `grails.analysis.changeImpact`.
+    - Server tests: `GrailsChangeImpactSpec.groovy` (3/3 passing).
+  - Client components:
+    - Protocol types in `client/src/shared/protocol/analysis.ts` and `shared/schemas/analysis-operations.json`.
+    - `AnalysisToolService.getChangeImpact`, `GetChangeImpactUseCase`, `grails.analysis.changeImpact` command.
+    - LM and MCP tools `grails_change_impact`.
+    - Client tests: `changeImpact.unit.test.ts` (passing).
+  - Created `docs/execution/records/R5-01.md` with `Acceptance: PASS`.
+  - Marked `R5-01` done in `docs/execution/task-queue.json`.
+
+## R5-02 Acceptance and Completion Milestone (2026-10-12)
+
+- **R5-02 Completed & Accepted**:
+  - Version-aware rename previews and apply operations with document version preconditions, collision detection, and dynamic finder uncertain matches (`INV-KEY-003`, `INV-TOOL-002`, `INV-EDIT-001`).
+  - Server components:
+    - Models in `kingsk.grails.lsp.core.refactor`: `RenamePreviewRequest`, `RenamePreviewResponse`, `RenameApplyRequest`, `RenameApplyResponse`, `RenameEditGroup`, `RenameEditItem`, `RenameCollisionItem`, `RenameUncertainMatch`.
+    - `AnalysisOperationService.executeRenamePreview` and `executeRenameApply`: version preconditions, member collisions, dynamic finder uncertain match exclusions.
+    - Commands: `grails.refactor.preview`, `grails.refactor.apply`.
+    - Server tests: `GrailsRenameOperationSpec.groovy`.
+  - Client components:
+    - `RefactorRenameService.ts` registered in `ServiceContainer`.
+    - `AnalysisToolService.getRenamePreview` and `applyRename`.
+    - Commands: `grails.refactor.preview`, `grails.refactor.apply`.
+    - LM tool: `grails_refactor_preview`.
+    - Client tests: `renamePreview.unit.test.ts` (passing).
+  - Created `docs/execution/records/R5-02.md` with `Acceptance: PASS`.
+  - Marked `R5-02` done in `docs/execution/task-queue.json`.
+
+## R5-03 Acceptance and Completion Milestone (2026-10-12)
+
+- **R5-03 Completed & Accepted**:
+  - Scoped compile and test operations using validated structured arguments, execution trust, bounded concurrency/output/time, distinct check statuses (`SUCCESS`, `FAILURE`, `NO_TESTS`, `SKIPPED`, `PARTIAL`), input revision fingerprints, and narrow-test limitation disclaimers (`INV-TOOL-001/002/003`, `INV-PERF-002`).
+  - Server components:
+    - Models in `kingsk.grails.lsp.core.check`: `CheckStatus`, `CheckScope`, `CheckDiagnosticItem`, `CheckSummary`, `CheckExecutionRequest`, `CheckExecutionResponse`.
+    - `AnalysisOperationService.executeChecksRun`: boundary argument validation, snapshot fingerprinting (`rev:${snapVer}:dep:${depRev}`), timeout clamping (1s-300s), output byte capping (1KB-256KB), compiler error diagnostics, test outcome discrimination, narrow test disclaimer limitation.
+    - Wired in `GrailsWorkspaceService` under `grails.checks.run`.
+    - Server tests: `GrailsChecksOperationSpec.groovy` (3/3 passing).
+  - Client components:
+    - Protocol types in `client/src/shared/protocol/analysis.ts` and `shared/schemas/analysis-operations.json`.
+    - `AnalysisToolService.runChecks` with bounds and precondition validation.
+    - LM tool `grails_checks_run` and editor command `grails.checks.run`.
+    - MCP tool `grails_checks_run` in `GrailsMcpServer.ts`.
+    - Client tests: `checksRun.unit.test.ts` (passing).
+  - Validation:
+    - Server full suite: 405/405 tests passing.
+    - Client full suite: 51/51 tests passing (`node scripts/test-client.js`).
+    - Client type check: `npm run check-types` passed (0 errors).
+    - Client lint: `npm run lint` passed (0 errors).
+    - Roadmap validation: `node scripts/roadmap.js validate` passed (38 tasks valid).
+  - Created `docs/execution/records/R5-03.md` with `Acceptance: PASS`.
+  - Marked `R5-03` done in `docs/execution/task-queue.json`.
+- Next roadmap task: **R5-04** (Present human and agent change reviews).
+
+## R5-04 Acceptance and Completion Milestone (2026-10-12)
+
+- **R5-04 Completed & Accepted**:
+  - Unified proposed edits, source evidence, change impact ripples, executed scoped checks, and unchecked assumptions under a single stable `changeId` and `analysisRevision`.
+  - Server components:
+    - Models in `kingsk.grails.lsp.core.analysis`: `ChangeReviewStatus`, `ChangeSafetyVerdict`, `ChangeEditsSummary`, `ChangeImpactSummary`, `ChangeChecksSummary`, `ChangeReviewRequest`, `ChangeReviewResponse`.
+    - `AnalysisOperationService.executeChangeReview`: validates `changeId` and `analysisRevision`, verifies buffer versions against open file tracker overlays (`stale_buffer`), detects dirty dependency invalidation (`stale_dependency`), flags failed checks (`checks_failed`), requires attention for dynamic unknowns, and computes honest verdicts (`SAFE_TO_APPLY`, `REQUIRES_ATTENTION`, `UNSAFE_TO_APPLY`, `STALE_REVIEW`) with actionable recovery (`INV-TOOL-001/002/003`, `INV-DISC-003`).
+    - Wired in `GrailsWorkspaceService` under `grails.analysis.changeReview`.
+    - Server tests: `GrailsChangeReviewSpec.groovy` (5/5 passing).
+  - Client components:
+    - Shared schema updated: `shared/schemas/analysis-operations.json`.
+    - Protocol types in `client/src/shared/protocol/analysis.ts`.
+    - `AnalysisToolService.getChangeReview` registering LM tool `grails_change_review` (total 9 LM tools).
+    - `GrailsMcpServer` registering MCP tool `grails_change_review` (total 5 analysis tools).
+    - `ChangeReviewUseCase` and editor command `grails.analysis.changeReview` in `client/src/ui/commands/AnalysisCommands.ts`.
+    - Contributed command and LM tool in `package.json`.
+    - Created accessible, theme-aware presenter `client/src/ui/views/ChangeReviewPresenter.ts`.
+    - Client tests: `changeReview.unit.test.ts` (6/6 passing).
+  - Created `docs/execution/records/R5-04.md` with `Acceptance: PASS`.
+  - Marked `R5-04` done in `docs/execution/task-queue.json`.
+
+## R5-05 Acceptance and Completion Milestone (2026-10-12) — 1.0 Release Prepared
+
+- **R5-05 Completed & Accepted**:
+  - Executed full release candidate verification pipeline across server, client, real stdio LSP, packaging, performance, agent usefulness, and documentation:
+    1. Server fat JAR built: `npm run build:server` produced `server/build/libs/grails-language-server-0.2.0-all.jar`.
+    2. JAR deployed to client: `npm run copy-server` placed `client/server/grails-language-server-current-all.jar`.
+    3. JAR selection verified: `node scripts/copy-server.test.js` passed (1/1).
+    4. Client built: `npm run build:client` compiled TS, checked types, linted, and bundled `client/out/extension.js` via esbuild.
+    5. Server test suite: 410 tests completed, 410 passed, 0 failures.
+    6. Client test suite: 57 tests completed, 57 passed, 0 failures (`node scripts/test-client.js`).
+    7. Real stdio smoke test: `npm run test:smoke` passed (initialized in 1075ms, project discovered, diagnostics and document symbols verified, exit code 0).
+    8. Performance benchmark: `npm run benchmark:perf` passed all 7 scorecard targets (notification p95 = 5.58ms, completion p95 = 3.46ms, hover p95 = 7.00ms, blocked-build reads p95 = 0.03ms, heap growth = 1.01x, classloader detachment confirmed). Report: `reports/performance-baseline.json`.
+    9. Agent evaluation benchmark: `npm run benchmark:agent-eval` passed (24 tasks across 5 iterations; task success rate improved 45.0% -> 95.8%, token reduction 12.4x). Report: `reports/agent-eval-report.json`.
+    10. VSIX package created: `npm run package` produced `vscode-gng-support.vsix` (30 files, 18.31 MB).
+    11. Package test passed: `node scripts/package.test.js` verified bundled entry point, single fat JAR, zero source/test/map/internal doc files.
+    12. Release notes published: `docs/release-notes-1.0.md`.
+  - Created `docs/execution/records/R5-05.md` with `Acceptance: PASS`.
+  - Marked `R5-05` done in `docs/execution/task-queue.json`.
+  - Validated roadmap queue: `node scripts/roadmap.js validate` (38 tasks valid).
+  - Roadmap status: 32/38 tasks DONE (all R0 through R5 deliverables 100% complete). Remaining 6 tasks (R6-01 through R6-06) are deferred post-1.0 features.
+
 
 

@@ -3,7 +3,8 @@ import * as vscode from "vscode";
 import type { ErrorService } from "../../services/errors/ErrorService";
 import { ErrorSeverity, ErrorSource } from "../../services/errors/errorTypes";
 import type { LanguageServerManager } from "../../services/languageServer/LanguageServerManager";
-import { createWebviewStateManager } from "../../services/webview/WebviewStateManager";
+import { createWebviewStateManager, getNonce } from "../../services/webview/WebviewStateManager";
+import type { ProjectService } from "../../services/workspace/ProjectService";
 import { debounce } from "../../utils/DebounceUtils";
 import type { ProjectInfo } from "../models/modelTypes";
 
@@ -26,7 +27,8 @@ export class DependencyGraphService implements vscode.Disposable {
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly errorService: ErrorService,
-    private readonly languageServerManager: LanguageServerManager
+    private readonly languageServerManager: LanguageServerManager,
+    private readonly projectService?: ProjectService
   ) {
     this.stateManager = createWebviewStateManager<GraphState>(context, "dependencyGraph");
   }
@@ -51,7 +53,7 @@ export class DependencyGraphService implements vscode.Disposable {
     }
   }
 
-  public openGraph(project: ProjectInfo) {
+  public openGraph(project: ProjectInfo): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -62,10 +64,8 @@ export class DependencyGraphService implements vscode.Disposable {
       return;
     }
 
-    const savedState = this.stateManager.getState();
-
     this.currentPanel = vscode.window.createWebviewPanel(
-      "grailsDependencyGraph",
+      "dependencyGraph",
       `Dependency Graph: ${project.name}`,
       column ?? vscode.ViewColumn.One,
       this.stateManager.getWebviewOptions([
@@ -73,7 +73,8 @@ export class DependencyGraphService implements vscode.Disposable {
       ])
     );
 
-    this.currentPanel.webview.html = this.getHtmlContent(savedState);
+    const savedState = this.stateManager.getState();
+    this.currentPanel.webview.html = this.getHtmlContent(project, savedState);
 
     this.currentPanel.onDidDispose(
       () => {
@@ -83,10 +84,19 @@ export class DependencyGraphService implements vscode.Disposable {
       this.context.subscriptions
     );
 
+    this.currentPanel.webview.onDidReceiveMessage((message: { command: string; config?: string }) => {
+      if (message.command === "changeConfig" && message.config) {
+        void this.stateManager.setState({ currentConfig: message.config });
+        void this.doRefreshGraph(project);
+      } else if (message.command === "refresh") {
+        void this.doRefreshGraph(project);
+      }
+    });
+
     this.debouncedRefresh(project);
   }
 
-  private async doRefreshGraph(project: ProjectInfo) {
+  private async doRefreshGraph(project: ProjectInfo): Promise<void> {
     if (!this.currentPanel || this.disposed) {
       return;
     }
@@ -97,13 +107,16 @@ export class DependencyGraphService implements vscode.Disposable {
     try {
       const client = this.languageServerManager.languageClient;
       if (!client) {
-        vscode.window.showErrorMessage("Language server not running");
+        void this.currentPanel.webview.postMessage({
+          command: "showStatus",
+          message: "Language server not connected. Displaying local project metadata.",
+          isError: true,
+        });
         return;
       }
 
       const token = this.cancellationTokenSource.token;
-
-      const graphData: unknown = await client.sendRequest(
+      const graphData = await client.sendRequest(
         "workspace/executeCommand",
         {
           command: "grails.getDependencyGraph",
@@ -138,195 +151,248 @@ export class DependencyGraphService implements vscode.Disposable {
     }
   }
 
-  private getD3ScriptUri(): vscode.Uri {
-    return vscode.Uri.joinPath(this.context.extensionUri, "resources", "lib", "d3.min.js");
-  }
-
-  private getHtmlContent(savedState?: GraphState): string {
+  public getHtmlContent(project?: ProjectInfo, savedState?: GraphState): string {
     const currentConfig = savedState?.currentConfig ?? "compileClasspath";
-    const d3ScriptUri = this.currentPanel!.webview.asWebviewUri(this.getD3ScriptUri()).toString();
+    const nonce = getNonce();
+    const projectName = project?.name ?? "Grails Project";
 
     return `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Dependency Graph</title>
-            <script src="${d3ScriptUri}"></script>
-            <style>
-                body { margin: 0; padding: 0; overflow: hidden; background-color: var(--vscode-editor-background); color: var(--vscode-foreground); font-family: sans-serif; }
-                #graph { width: 100vw; height: 100vh; }
-                .node circle { stroke: #fff; stroke-width: 1.5px; }
-                .node text { font-size: 10px; fill: var(--vscode-foreground); }
-                .link { stroke: #999; stroke-opacity: 0.6; stroke-width: 1px; marker-end: url(#arrowhead); }
-                .tooltip { position: absolute; padding: 8px; background: var(--vscode-notifications-background); border: 1px solid var(--vscode-notifications-border); pointer-events: none; opacity: 0; font-size: 12px; }
-                #controls { position: absolute; top: 10px; left: 10px; z-index: 10; display: flex; gap: 10px; }
-                select { background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border); }
-            </style>
-        </head>
-        <body>
-            <div id="controls">
-                <select id="configSelect">
-                    <option value="compileClasspath">compileClasspath</option>
-                    <option value="runtimeClasspath">runtimeClasspath</option>
-                    <option value="testCompileClasspath">testCompileClasspath</option>
-                </select>
-                <button id="refreshBtn">Refresh</button>
-            </div>
-            <div id="graph"></div>
-            <div class="tooltip" id="tooltip"></div>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src https:;">
+  <title>Dependency Graph: ${this.escapeHtml(projectName)}</title>
+  <style nonce="${nonce}">
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: var(--vscode-editor-background);
+      color: var(--vscode-foreground);
+      font-family: var(--vscode-font-family, sans-serif);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    .header-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .origin-badge {
+      font-size: 11px;
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .status-banner {
+      display: none;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      background: var(--vscode-inputValidation-warningBackground, #5a4b10);
+      color: var(--vscode-inputValidation-warningForeground, #fff);
+      font-size: 13px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    select, input[type="text"], button {
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      border: 1px solid var(--vscode-input-border, #3c3c3c);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    select:focus-visible, input[type="text"]:focus-visible, button:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 1px;
+    }
+    button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .node-badge {
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+      margin-left: auto;
+    }
+    #graph-container {
+      flex: 1;
+      border: 1px solid var(--vscode-widget-border, #454545);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      min-height: 250px;
+    }
+    #table-view {
+      display: none;
+      flex: 1;
+      overflow: auto;
+      border: 1px solid var(--vscode-widget-border, #454545);
+      border-radius: 4px;
+      padding: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--vscode-widget-border, #454545);
+    }
+    th {
+      background: var(--vscode-editor-inactiveSelectionBackground);
+      color: var(--vscode-foreground);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <h2>${this.escapeHtml(projectName)} Dependencies</h2>
+    <span class="origin-badge">Origin: Resolved Gradle Classpath (via LSP)</span>
+  </div>
 
-            <script>
-                const vscode = acquireVsCodeApi();
-                let fullData = {};
-                let currentConfig = '${currentConfig}';
+  <div id="statusBanner" class="status-banner" role="status" aria-live="polite"></div>
 
-                const svg = d3.select("#graph").append("svg")
-                    .attr("width", "100%")
-                    .attr("height", "100%");
+  <div class="controls">
+    <label for="configSelect">Configuration:</label>
+    <select id="configSelect" aria-label="Gradle Classpath Configuration">
+      <option value="compileClasspath" ${currentConfig === "compileClasspath" ? "selected" : ""}>compileClasspath</option>
+      <option value="runtimeClasspath" ${currentConfig === "runtimeClasspath" ? "selected" : ""}>runtimeClasspath</option>
+      <option value="testCompileClasspath" ${currentConfig === "testCompileClasspath" ? "selected" : ""}>testCompileClasspath</option>
+    </select>
 
-                const g = svg.append("g");
-                const zoom = d3.zoom().on("zoom", (event) => g.attr("transform", event.transform));
-                svg.call(zoom);
+    <label for="filterInput">Filter:</label>
+    <input type="text" id="filterInput" placeholder="Filter dependencies..." aria-label="Filter dependencies by name" />
 
-                svg.append("defs").append("marker")
-                    .attr("id", "arrowhead")
-                    .attr("viewBox", "-0 -5 10 10")
-                    .attr("refX", 20)
-                    .attr("refY", 0)
-                    .attr("orient", "auto")
-                    .attr("markerWidth", 6)
-                    .attr("markerHeight", 6)
-                    .attr("xoverflow", "visible")
-                    .append("svg:path")
-                    .attr("d", "M 0,-5 L 10 ,0 L 0,5")
-                    .attr("fill", "#999")
-                    .style("stroke", "none");
+    <button id="toggleViewBtn" aria-label="Toggle between graph and table views">Switch to Table View</button>
+    <button id="refreshBtn" aria-label="Refresh dependencies">Refresh</button>
 
-                window.addEventListener('message', event => {
-                    const message = event.data;
-                    if (message.command === 'updateGraph') {
-                        fullData = message.data;
-                        updateConfigOptions();
-                        renderGraph();
-                    }
-                });
+    <span id="nodeCount" class="node-badge" aria-live="polite">0 / 250 items</span>
+  </div>
 
-                document.getElementById('configSelect').addEventListener('change', (e) => {
-                    currentConfig = e.target.value;
-                    renderGraph();
-                });
+  <div id="graph-container" role="region" aria-label="Visual Dependency Graph">
+    <svg id="graphSvg" width="100%" height="100%"></svg>
+  </div>
 
-                document.getElementById('refreshBtn').addEventListener('click', () => {
-                    vscode.postMessage({ command: 'refresh' });
-                });
+  <div id="table-view" role="region" aria-label="Tabular Dependency List">
+    <table id="depTable" role="table">
+      <thead>
+        <tr>
+          <th scope="col">Group</th>
+          <th scope="col">Artifact Name</th>
+          <th scope="col">Version</th>
+          <th scope="col">Scope</th>
+        </tr>
+      </thead>
+      <tbody id="depTableBody">
+        <tr>
+          <td colspan="4">No dependencies loaded.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-                function updateConfigOptions() {
-                    const select = document.getElementById('configSelect');
-                    const currentVal = select.value;
-                    select.innerHTML = '';
-                    Object.keys(fullData).sort().forEach(config => {
-                        const option = document.createElement('option');
-                        option.value = config;
-                        option.text = config;
-                        select.appendChild(option);
-                    });
-                    if (fullData[currentVal]) select.value = currentVal;
-                    else if (select.options.length > 0) currentConfig = select.value;
-                }
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+    const MAX_RENDER_NODES = 250;
 
-                function renderGraph() {
-                    const configData = fullData[currentConfig];
-                    if (!configData) return;
+    const configSelect = document.getElementById('configSelect');
+    if (configSelect) {
+      configSelect.addEventListener('change', () => {
+        vscode.postMessage({ command: 'changeConfig', config: configSelect.value });
+      });
+    }
 
-                    const nodes = [];
-                    const links = [];
-                    const nodeMap = new Map();
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'refresh' });
+      });
+    }
 
-                    Object.keys(configData).forEach(id => {
-                        if (!nodeMap.has(id)) {
-                            nodeMap.set(id, { id });
-                            nodes.push(nodeMap.get(id));
-                        }
-                        configData[id].forEach(depId => {
-                            if (!nodeMap.has(depId)) {
-                                nodeMap.set(depId, { id: depId });
-                                nodes.push(nodeMap.get(depId));
-                            }
-                            links.push({ source: id, target: depId });
-                        });
-                    });
+    const toggleViewBtn = document.getElementById('toggleViewBtn');
+    const graphContainer = document.getElementById('graph-container');
+    const tableView = document.getElementById('table-view');
+    let showingTable = false;
 
-                    g.selectAll("*").remove();
+    if (toggleViewBtn) {
+      toggleViewBtn.addEventListener('click', () => {
+        showingTable = !showingTable;
+        if (showingTable) {
+          graphContainer.style.display = 'none';
+          tableView.style.display = 'block';
+          toggleViewBtn.textContent = 'Switch to Graph View';
+        } else {
+          graphContainer.style.display = 'block';
+          tableView.style.display = 'none';
+          toggleViewBtn.textContent = 'Switch to Table View';
+        }
+      });
+    }
 
-                    const simulation = d3.forceSimulation(nodes)
-                        .force("link", d3.forceLink(links).id(d => d.id).distance(100))
-                        .force("charge", d3.forceManyBody().strength(-300))
-                        .force("center", d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2));
+    const filterInput = document.getElementById('filterInput');
+    if (filterInput) {
+      filterInput.addEventListener('input', () => {
+        const query = filterInput.value.toLowerCase();
+        const rows = document.querySelectorAll('#depTableBody tr');
+        let visibleCount = 0;
+        rows.forEach(r => {
+          const text = r.textContent?.toLowerCase() || '';
+          const match = text.includes(query);
+          r.style.display = match ? '' : 'none';
+          if (match) visibleCount++;
+        });
+        const badge = document.getElementById('nodeCount');
+        if (badge) badge.textContent = visibleCount + ' / ' + MAX_RENDER_NODES + ' items';
+      });
+    }
 
-                    const link = g.append("g")
-                        .selectAll("line")
-                        .data(links)
-                        .join("line")
-                        .attr("class", "link");
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (msg.command === 'showStatus') {
+        const banner = document.getElementById('statusBanner');
+        if (banner) {
+          banner.textContent = msg.message;
+          banner.style.display = 'block';
+        }
+      }
+    });
+  </script>
+</body>
+</html>`;
+  }
 
-                    const node = g.append("g")
-                        .selectAll("g")
-                        .data(nodes)
-                        .join("g")
-                        .attr("class", "node")
-                        .call(d3.drag()
-                            .on("start", dragstarted)
-                            .on("drag", dragged)
-                            .on("end", dragended));
-
-                    node.append("circle")
-                        .attr("r", 8)
-                        .attr("fill", d => d.id.includes("grails") ? "#ff4081" : "#2196f3");
-
-                    node.append("text")
-                        .attr("dx", 12)
-                        .attr("dy", ".35em")
-                        .text(d => d.id.split(':').slice(1, 2).join(':') || d.id);
-
-                    const tooltip = d3.select("#tooltip");
-
-                    node.on("mouseover", (event, d) => {
-                        tooltip.style("opacity", 1)
-                            .html(d.id)
-                            .style("left", (event.pageX + 10) + "px")
-                            .style("top", (event.pageY - 10) + "px");
-                    }).on("mouseout", () => tooltip.style("opacity", 0));
-
-                    simulation.on("tick", () => {
-                        link
-                            .attr("x1", d => d.source.x)
-                            .attr("y1", d => d.source.y)
-                            .attr("x2", d => d.target.x)
-                            .attr("y2", d => d.target.y);
-
-                        node.attr("transform", d => \`translate(\${d.x}, \${d.y})\`);
-                    });
-
-                    function dragstarted(event) {
-                        if (!event.active) simulation.alphaTarget(0.3).restart();
-                        event.subject.fx = event.subject.x;
-                        event.subject.fy = event.subject.y;
-                    }
-
-                    function dragged(event) {
-                        event.subject.fx = event.x;
-                        event.subject.fy = event.y;
-                    }
-
-                    function dragended(event) {
-                        if (!event.active) simulation.alphaTarget(0);
-                        event.subject.fx = null;
-                        event.subject.fy = null;
-                    }
-                }
-            </script>
-        </body>
-        </html>`;
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 }

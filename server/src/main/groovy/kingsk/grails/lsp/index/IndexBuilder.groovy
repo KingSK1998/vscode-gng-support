@@ -187,6 +187,10 @@ class IndexBuilder {
         return references
     }
 
+    static List<kingsk.grails.lsp.core.analysis.GrailsRelationshipItem> buildRelationships(String uri, List<ClassNode> classNodes) {
+        return GrailsRelationshipExtractor.extractRelationships(uri, classNodes)
+    }
+
     static String buildDescriptor(ClassNode clazz, MethodNode method) {
         String params = ""
         if (method.parameters) {

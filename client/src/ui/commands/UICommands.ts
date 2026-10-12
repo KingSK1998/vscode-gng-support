@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import { EventBus } from "../../core/events/EventBus";
 import { EventType } from "../../core/events/eventTypes";
 import { ErrorSeverity, ErrorSource } from "../../services/errors/errorTypes";
-import { GrailsDashboard } from "../views/GrailsDashboard";
 import { BaseCommandProvider } from "./BaseCommandProvider";
 
 export class UICommands extends BaseCommandProvider {
@@ -29,8 +28,7 @@ export class UICommands extends BaseCommandProvider {
     });
 
     this.register("grails.showDashboard", () => {
-      const dashboard = new GrailsDashboard();
-      dashboard.createOrShow(this.context);
+      this.container.dashboardService.openDashboard();
     });
 
     this.register("grails.showExtensionInfo", () => {

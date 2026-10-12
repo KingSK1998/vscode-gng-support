@@ -15,14 +15,16 @@ export function getClientOptions(config: ConfigurationService): LanguageClientOp
       { scheme: "file", language: "groovy" },
       { scheme: "file", language: "gsp" },
       { scheme: "file", language: "properties" },
+      { scheme: "file", language: "yaml" },
+      { scheme: "file", language: "json" },
     ],
     synchronize: {
       fileEvents: [
-        workspace.createFileSystemWatcher("**/*.{groovy,gsp,properties}"),
+        workspace.createFileSystemWatcher("**/*.{groovy,gsp,properties,yml,yaml,json}"),
         workspace.createFileSystemWatcher(
           "**/{build.gradle,build.gradle.kts,settings.gradle,settings.gradle.kts,gradle.properties,gradle/libs.versions.toml}"
         ),
-        workspace.createFileSystemWatcher("**/application.{yml,yaml,properties}"),
+        workspace.createFileSystemWatcher("**/application*.{yml,yaml,properties,json}"),
       ],
     },
     outputChannel: serverOutput,

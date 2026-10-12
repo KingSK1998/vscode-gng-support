@@ -238,6 +238,36 @@
         "command": "grails.analysis.getDiagnostics",
         "title": "Get Project Diagnostics",
         "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.analysis.getRelationships",
+        "title": "Get Project Relationships",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.analysis.getChangeImpact",
+        "title": "Analyze Change Impact",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.refactor.preview",
+        "title": "Preview Rename Refactoring",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.refactor.apply",
+        "title": "Apply Rename Refactoring",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.checks.run",
+        "title": "Run Scoped Compile or Test Checks",
+        "category": "Grails Analysis"
+      },
+      {
+        "command": "grails.analysis.changeReview",
+        "title": "Present Change Review",
+        "category": "Grails Analysis"
       }
     ],
     "configuration": [
@@ -762,6 +792,141 @@
             "limit": {
               "type": "number",
               "description": "Maximum count of diagnostics to return"
+            }
+          },
+          "required": [
+            "projectUri"
+          ]
+        }
+      },
+      {
+        "name": "grails_refactor_preview",
+        "displayName": "Grails Refactor Preview",
+        "description": "Preview a version-aware symbol rename refactoring across Groovy and GSP files.",
+        "modelDescription": "Generate preview edits, document preconditions, dynamic uncertain matches, and collisions for renaming a Grails symbol.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "Canonical URI of the project root"
+            },
+            "documentUri": {
+              "type": "string",
+              "description": "Document URI containing the symbol"
+            },
+            "line": {
+              "type": "number",
+              "description": "0-based line number"
+            },
+            "character": {
+              "type": "number",
+              "description": "0-based character offset"
+            },
+            "newName": {
+              "type": "string",
+              "description": "Proposed new name"
+            },
+            "expectedRevision": {
+              "type": "string",
+              "description": "Optional expected revision hash"
+            }
+          },
+          "required": [
+            "projectUri",
+            "documentUri",
+            "line",
+            "character",
+            "newName"
+          ]
+        }
+      },
+      {
+        "name": "grails_checks_run",
+        "displayName": "Run Grails Checks",
+        "modelDescription": "Execute scoped compile or test checks for a Grails project with bounded concurrency, timeout, and output; generates structured execution records with test counts, compilation status, diagnostics, and limitations.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "URI of the project root"
+            },
+            "checkType": {
+              "type": "string",
+              "enum": [
+                "compile",
+                "test",
+                "all"
+              ],
+              "description": "Check operation to execute ('compile', 'test', or 'all')"
+            },
+            "sourceSet": {
+              "type": "string",
+              "description": "Optional source set scope ('main', 'test')"
+            },
+            "classes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Optional target class names or test patterns to execute"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 300000,
+              "description": "Timeout budget in milliseconds (default 60000, max 300000)"
+            },
+            "maxOutputBytes": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 262144,
+              "description": "Maximum output bytes (default 65536, max 262144)"
+            }
+          },
+          "required": [
+            "projectUri",
+            "checkType"
+          ]
+        }
+      },
+      {
+        "name": "grails_change_review",
+        "displayName": "Present Grails Change Review",
+        "modelDescription": "Present unified human and agent change review connecting edits, source evidence, change impact, check execution status, and unchecked assumptions under a single changeId and analysisRevision.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "projectUri": {
+              "type": "string",
+              "description": "URI of the project root"
+            },
+            "changeId": {
+              "type": "string",
+              "description": "Optional stable identifier for this proposed or applied change"
+            },
+            "edits": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              },
+              "description": "Proposed RenameEdit list"
+            },
+            "impact": {
+              "type": "object",
+              "description": "Optional ChangeImpactResponse"
+            },
+            "checks": {
+              "type": "object",
+              "description": "Optional CheckExecutionResponse"
+            },
+            "assumptions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Unchecked assumptions declared by the agent"
             }
           },
           "required": [

@@ -60,35 +60,48 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
 
       case TreeItemKind.GrailsAppRoot:
         return Promise.resolve(this.getGrailsArtefactCategories(element.projectInfo));
-      // case TreeItemKind.ConfigRoot:
-      //   return Promise.resolve(this.getConfigurationItems(element.projectInfo));
-      // case TreeItemKind.ViewsRoot:
-      //   return Promise.resolve(this.getViewStructure(element.projectInfo));
-      // case TreeItemKind.AssetsRoot:
-      //   return Promise.resolve(this.getAssetStructure(element.projectInfo));
-      // case TreeItemKind.RoutesRoot:
-      //   return Promise.resolve(this.getRouteList(element.projectInfo));
-      // case TreeItemKind.SrcRoot:
-      //   return Promise.resolve(
-      //     this.getSourceDirectories(element.resourcePath, element.projectInfo)
-      //   );
-      // case TreeItemKind.TestsRoot:
-      //   return Promise.resolve(this.getTestDirectories(element.resourcePath, element.projectInfo));
-      // case TreeItemKind.DependenciesRoot:
-      //   return Promise.resolve(this.getDependencyCategories(element.projectInfo));
 
       case TreeItemKind.GrailsArtifactFolders:
-        return Promise.resolve(this.getArtifactFiles(element.projectInfo, element.artifactType));
-      // case TreeItemKind.SourceDir:
-      // case TreeItemKind.TestDir:
-      //   return Promise.resolve(this.getDirectoryContents(element.resourcePath, element.kind));
-      // case TreeItemKind.ViewsFolder:
-      //   return Promise.resolve(this.getViewFiles(element.resourcePath));
-      // case TreeItemKind.AssetsFolder:
-      //   return Promise.resolve(this.getAssetFiles(element.resourcePath));
+        return Promise.resolve(this.getArtifactFolderChildren(element));
 
-      // case TreeItemKind.DEPENDENCY_CATEGORY:
-      //   return Promise.resolve(this.getDependencyList(element.projectInfo, element.label));
+      case TreeItemKind.ConfigRoot:
+      case TreeItemKind.ConfFolder:
+        return Promise.resolve(this.getConfFolderChildren(element));
+
+      case TreeItemKind.I18nRoot:
+        return Promise.resolve(this.getI18nFolderChildren(element));
+
+      case TreeItemKind.ViewsRoot:
+      case TreeItemKind.ViewsFolder:
+        return Promise.resolve(this.getViewFolderChildren(element));
+
+      case TreeItemKind.AssetsRoot:
+      case TreeItemKind.AssetsFolder:
+        return Promise.resolve(this.getAssetFolderChildren(element));
+
+      case TreeItemKind.RoutesRoot:
+        return Promise.resolve(this.getRouteList(element.projectInfo));
+
+      case TreeItemKind.SrcRoot:
+      case TreeItemKind.SourceDir:
+        return Promise.resolve(this.getSourceDirChildren(element));
+
+      case TreeItemKind.TestsRoot:
+      case TreeItemKind.TestDir:
+        return Promise.resolve(this.getTestDirChildren(element));
+
+      case TreeItemKind.GeneratedRoot:
+      case TreeItemKind.GeneratedDir:
+        return Promise.resolve(this.getGeneratedDirChildren(element));
+
+      case TreeItemKind.InitRoot:
+        return Promise.resolve(this.getInitFolderChildren(element));
+
+      case TreeItemKind.DependenciesRoot:
+        return Promise.resolve(this.getDependencyCategories(element.projectInfo));
+
+      case TreeItemKind.DEPENDENCY_CATEGORY:
+        return Promise.resolve(this.getDependencyList(element.projectInfo, element.label));
 
       default:
         console.log(`⚠️ [GRAILS-TREE] Unknown TreeItemKind: ${element.kind}`);
@@ -221,21 +234,23 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
       );
     }
 
-    // 4. Routes (Virtual - always show for Grails projects)
-    // if (this.isGrailsProject(project)) {
-    //   items.push(
-    //     new GrailsTreeItem(
-    //       "Routes",
-    //       TreeItemCollapsibleState.Collapsed,
-    //       TreeItemKind.RoutesRoot,
-    //       NO_ACTION_COMMAND,
-    //       project
-    //     )
-    //   );
-    // }
+    // 4. Routes (Virtual - for Grails projects)
+    if (this.isGrailsProject(project)) {
+      items.push(
+        new GrailsTreeItem(
+          "Routes",
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.RoutesRoot,
+          NO_ACTION_COMMAND,
+          project
+        )
+      );
+    }
 
-    // 5. Source (only if src folder exists)
-    if (this.hasSourceFolder(project)) {
+    // 5. Sources (main or src)
+    const srcMainFolder = path.join(project.rootPath, "src", "main");
+    const srcFolder = path.join(project.rootPath, "src");
+    if (this.folderExists(srcMainFolder)) {
       items.push(
         new GrailsTreeItem(
           "Sources",
@@ -243,13 +258,26 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
           TreeItemKind.SrcRoot,
           NO_ACTION_COMMAND,
           project,
-          path.join(project.rootPath, "src", "main")
+          srcMainFolder
+        )
+      );
+    } else if (this.folderExists(srcFolder)) {
+      items.push(
+        new GrailsTreeItem(
+          "Sources",
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.SrcRoot,
+          NO_ACTION_COMMAND,
+          project,
+          srcFolder
         )
       );
     }
 
-    // 6. Tests (only if test folder exists)
-    if (this.hasTestFolder(project)) {
+    // 6. Tests (src/test or test)
+    const testFolder = path.join(project.rootPath, "src", "test");
+    const testRootFolder = path.join(project.rootPath, "test");
+    if (this.folderExists(testFolder)) {
       items.push(
         new GrailsTreeItem(
           "Tests",
@@ -257,11 +285,23 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
           TreeItemKind.TestsRoot,
           NO_ACTION_COMMAND,
           project,
-          path.join(project.rootPath, "src", "test")
+          testFolder
+        )
+      );
+    } else if (this.folderExists(testRootFolder)) {
+      items.push(
+        new GrailsTreeItem(
+          "Tests",
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.TestsRoot,
+          NO_ACTION_COMMAND,
+          project,
+          testRootFolder
         )
       );
     }
 
+    // 7. Init (Startup)
     const intiFolder = path.join(project.rootPath, "grails-app", "init");
     if (this.folderExists(intiFolder)) {
       items.push(
@@ -276,27 +316,47 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
       );
     }
 
-    // 7. Dependencies (always show - parsed from build.gradle)
-    // items.push(
-    //   new GrailsTreeItem(
-    //     "Dependencies",
-    //     TreeItemCollapsibleState.Collapsed,
-    //     TreeItemKind.DependenciesRoot,
-    //     NO_ACTION_COMMAND,
-    //     project
-    //   )
-    // );
+    // 8. Generated Sources (build/generated/sources or build/generated)
+    const genSourcesFolder = path.join(project.rootPath, "build", "generated", "sources");
+    const genBuildFolder = path.join(project.rootPath, "build", "generated");
+    if (this.folderExists(genSourcesFolder)) {
+      items.push(
+        new GrailsTreeItem(
+          "Generated Sources",
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.GeneratedRoot,
+          NO_ACTION_COMMAND,
+          project,
+          genSourcesFolder
+        )
+      );
+    } else if (this.folderExists(genBuildFolder)) {
+      items.push(
+        new GrailsTreeItem(
+          "Generated Sources",
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.GeneratedRoot,
+          NO_ACTION_COMMAND,
+          project,
+          genBuildFolder
+        )
+      );
+    }
 
-    // 8. Utilities (always show for productivity features)
-    // items.push(
-    //   new GrailsTreeItem(
-    //     "Utilities",
-    //     TreeItemCollapsibleState.Collapsed,
-    //     TreeItemKind.UTILITIES_ROOT,
-    //     NO_ACTION_COMMAND,
-    //     project
-    //   )
-    // );
+    // 9. Dependencies (parsed from build.gradle or model)
+    const buildGradle = path.join(project.rootPath, "build.gradle");
+    if (fs.existsSync(buildGradle) || (project.dependencies && project.dependencies.length > 0)) {
+      items.push(
+        new GrailsTreeItem(
+          "Dependencies",
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.DependenciesRoot,
+          NO_ACTION_COMMAND,
+          project,
+          buildGradle
+        )
+      );
+    }
 
     return items;
   }
@@ -389,196 +449,6 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
     return items;
   }
 
-  private getConfigurationItems(project: ProjectInfo): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-    const confPath = path.join(project.rootPath, "grails-app", "conf");
-
-    if (!this.folderExists(confPath)) {
-      return items;
-    }
-
-    // Application Config Files
-    const appConfigFiles = ["application.yml", "application.groovy", "application.properties"];
-
-    const appConfigItems = appConfigFiles
-      .map(file => path.join(confPath, file))
-      .filter(filePath => fs.existsSync(filePath))
-      .map(
-        filePath =>
-          new GrailsTreeItem(
-            path.basename(filePath),
-            TreeItemCollapsibleState.None,
-            TreeItemKind.ConfFile,
-            { command: "vscode.open", title: "Open", arguments: [Uri.file(filePath)] },
-            project,
-            filePath
-          )
-      );
-
-    if (appConfigItems.length > 0) {
-      items.push(
-        new GrailsTreeItem(
-          `🏗️ Application Config (${appConfigItems.length})`,
-          TreeItemCollapsibleState.Expanded,
-          TreeItemKind.ConfFolder,
-          NO_ACTION_COMMAND,
-          project,
-          confPath
-        )
-      );
-      items.push(...appConfigItems);
-    }
-
-    // Logging Config
-    const logbackPath = path.join(confPath, "logback.groovy");
-    if (fs.existsSync(logbackPath)) {
-      items.push(
-        new GrailsTreeItem(
-          "logback.groovy",
-          TreeItemCollapsibleState.None,
-          TreeItemKind.ConfFile,
-          { command: "vscode.open", title: "Open", arguments: [Uri.file(logbackPath)] },
-          project,
-          logbackPath
-        )
-      );
-    }
-
-    // Spring Beans
-    const resourcesPath = path.join(confPath, "spring", "resources.groovy");
-    if (fs.existsSync(resourcesPath)) {
-      items.push(
-        new GrailsTreeItem(
-          "resources.groovy",
-          TreeItemCollapsibleState.None,
-          TreeItemKind.ConfFile,
-          { command: "vscode.open", title: "Open", arguments: [Uri.file(resourcesPath)] },
-          project,
-          resourcesPath
-        )
-      );
-    }
-
-    // URL Mappings
-    const urlMappingsPath = path.join(confPath, "UrlMappings.groovy");
-    if (fs.existsSync(urlMappingsPath)) {
-      items.push(
-        new GrailsTreeItem(
-          "UrlMappings.groovy",
-          TreeItemCollapsibleState.None,
-          TreeItemKind.ConfFile,
-          { command: "vscode.open", title: "Open", arguments: [Uri.file(urlMappingsPath)] },
-          project,
-          urlMappingsPath
-        )
-      );
-    }
-
-    // Bootstrap
-    const bootstrapPath = path.join(confPath, "BootStrap.groovy");
-    if (fs.existsSync(bootstrapPath)) {
-      items.push(
-        new GrailsTreeItem(
-          "BootStrap.groovy",
-          TreeItemCollapsibleState.None,
-          TreeItemKind.ConfFile,
-          { command: "vscode.open", title: "Open", arguments: [Uri.file(bootstrapPath)] },
-          project,
-          bootstrapPath
-        )
-      );
-    }
-
-    return items;
-  }
-
-  private getViewStructure(project: ProjectInfo): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-    const viewsPath = path.join(project.rootPath, "grails-app", "views");
-
-    if (!this.folderExists(viewsPath)) {
-      return items;
-    }
-
-    try {
-      // Layouts folder
-      const layoutsPath = path.join(viewsPath, "layouts");
-      if (this.folderExists(layoutsPath)) {
-        const layoutCount = this.getFileCount(layoutsPath, [".gsp"]);
-        items.push(
-          new GrailsTreeItem(
-            `Layouts (${layoutCount})`,
-            TreeItemCollapsibleState.Collapsed,
-            TreeItemKind.ViewsFolder,
-            NO_ACTION_COMMAND,
-            project,
-            layoutsPath
-          )
-        );
-      }
-
-      // View folders (controllers)
-      const viewFolders = fs
-        .readdirSync(viewsPath, { withFileTypes: true })
-        .filter(dirent => dirent.isDirectory() && dirent.name !== "layouts")
-        .map(dirent => {
-          const folderPath = path.join(viewsPath, dirent.name);
-          const viewCount = this.getFileCount(folderPath, [".gsp"]);
-          return new GrailsTreeItem(
-            `${dirent.name} (${viewCount})`,
-            TreeItemCollapsibleState.Collapsed,
-            TreeItemKind.ViewsFolder,
-            NO_ACTION_COMMAND,
-            project,
-            folderPath
-          );
-        });
-
-      items.push(...viewFolders);
-    } catch (error) {
-      console.warn(`Error reading views directory ${viewsPath}:`, error);
-    }
-
-    return items;
-  }
-
-  private getAssetStructure(project: ProjectInfo): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-    const assetsPath = path.join(project.rootPath, "grails-app", "assets");
-
-    if (!this.folderExists(assetsPath)) {
-      return items;
-    }
-
-    try {
-      const assetCategories = [
-        { name: "stylesheets", extensions: [".css", ".scss", ".sass"] },
-        { name: "javascripts", extensions: [".js", ".coffee"] },
-        { name: "images", extensions: [".png", ".jpg", ".jpeg", ".gif", ".svg"] },
-      ];
-
-      for (const category of assetCategories) {
-        const categoryPath = path.join(assetsPath, category.name);
-        if (this.folderExists(categoryPath)) {
-          const assetCount = this.getRecursiveFileCount(categoryPath, category.extensions);
-          items.push(
-            new GrailsTreeItem(
-              `${category.name} (${assetCount})`,
-              TreeItemCollapsibleState.Collapsed,
-              TreeItemKind.AssetsFolder,
-              NO_ACTION_COMMAND,
-              project,
-              categoryPath
-            )
-          );
-        }
-      }
-    } catch (error) {
-      console.warn(`Error reading assets directory ${assetsPath}:`, error);
-    }
-
-    return items;
-  }
 
   private getRouteList(project: ProjectInfo): GrailsTreeItem[] {
     // Parse UrlMappings.groovy if it exists
@@ -660,74 +530,6 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
     return routes;
   }
 
-  private getSourceDirectories(
-    sourcePath: string | undefined,
-    project: ProjectInfo
-  ): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-
-    if (sourcePath === undefined || !this.folderExists(sourcePath)) {
-      return items;
-    }
-
-    try {
-      const sourceDirs = ["groovy", "java", "resources"];
-
-      for (const dir of sourceDirs) {
-        const dirPath = path.join(sourcePath, dir);
-        if (this.folderExists(dirPath)) {
-          const fileCount = this.getRecursiveFileCount(dirPath, [".groovy", ".java"]);
-          items.push(
-            new GrailsTreeItem(
-              `${dir} (${fileCount})`,
-              TreeItemCollapsibleState.Collapsed,
-              TreeItemKind.SourceDir,
-              NO_ACTION_COMMAND,
-              project,
-              dirPath
-            )
-          );
-        }
-      }
-    } catch (error) {
-      console.warn(`Error reading source directory ${sourcePath}:`, error);
-    }
-
-    return items;
-  }
-
-  private getTestDirectories(testPath: string | undefined, project: ProjectInfo): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-
-    if (testPath === undefined || !this.folderExists(testPath)) {
-      return items;
-    }
-
-    try {
-      const testDirs = ["groovy", "java", "resources"];
-
-      for (const dir of testDirs) {
-        const dirPath = path.join(testPath, dir);
-        if (this.folderExists(dirPath)) {
-          const testCount = this.getRecursiveFileCount(dirPath, [".groovy", ".java"]);
-          items.push(
-            new GrailsTreeItem(
-              `${dir} (${testCount})`,
-              TreeItemCollapsibleState.Collapsed,
-              TreeItemKind.TestDir,
-              NO_ACTION_COMMAND,
-              project,
-              dirPath
-            )
-          );
-        }
-      }
-    } catch (error) {
-      console.warn(`Error reading test directory ${testPath}:`, error);
-    }
-
-    return items;
-  }
 
   private getDependencyCategories(project: ProjectInfo): GrailsTreeItem[] {
     const items: GrailsTreeItem[] = [];
@@ -845,208 +647,477 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
     return dependencies;
   }
 
-  private getArtifactFiles(project: ProjectInfo, artifactType?: ArtifactType): GrailsTreeItem[] {
-    if (!artifactType) {
-      return [];
-    }
+  private static readonly MAX_DIRECTORY_ITEMS = 300;
 
-    const basePath = path.join(project.rootPath, "grails-app");
-    let artifactPath: string | null = null;
-
-    switch (artifactType) {
-      case ArtifactType.Controller:
-        artifactPath = path.join(basePath, "controllers");
-        break;
-      case ArtifactType.Service:
-        artifactPath = path.join(basePath, "services");
-        break;
-      case ArtifactType.Domain:
-        artifactPath = path.join(basePath, "domain");
-        break;
-      case ArtifactType.TagLib:
-        artifactPath = path.join(basePath, "taglib");
-        break;
-      case ArtifactType.Job:
-        artifactPath = path.join(basePath, "jobs");
-        break;
-      case ArtifactType.Utils:
-        artifactPath = path.join(basePath, "utils");
-        break;
-      default:
-        // Unknown artifact; return empty list
-        return [];
-    }
-
-    if (!this.folderExists(artifactPath)) {
-      return [];
-    }
-
-    // Use getPackagesWithFiles to build {package} nodes, with files nested
-    // Use TreeItemKind.GrailsArtifactFolders for packages and TreeItemKind.ArtifactFile for files
-    return this.getPackagesWithFiles(
-      artifactPath,
-      artifactPath,
-      TreeItemKind.GrailsArtifactFolders,
-      TreeItemKind.ArtifactFile,
-      project,
-      artifactType
-    );
-  }
-
-  private getDirectoryContents(
-    resourcePath: string | undefined,
-    kind: TreeItemKind
+  private readDirectorySafely(
+    dirPath: string,
+    project: ProjectInfo,
+    createDirItem: (fullPath: string, name: string) => GrailsTreeItem,
+    createFileItem: (fullPath: string, name: string) => GrailsTreeItem | null
   ): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-
-    if (resourcePath === undefined || !this.folderExists(resourcePath)) {
-      return items;
+    if (!this.folderExists(dirPath)) {
+      return [
+        new GrailsTreeItem(
+          "(Folder not found)",
+          TreeItemCollapsibleState.None,
+          TreeItemKind.Empty,
+          NO_ACTION_COMMAND,
+          project,
+          dirPath
+        ),
+      ];
     }
 
     try {
-      const entries = fs.readdirSync(resourcePath, { withFileTypes: true });
-
-      // Directories first
-      const directories = entries
-        .filter(entry => entry.isDirectory())
-        .map(entry => {
-          const fullPath = path.join(resourcePath, entry.name);
-          return new GrailsTreeItem(
-            `${entry.name}`,
-            TreeItemCollapsibleState.Collapsed,
-            kind === TreeItemKind.SourceDir ? TreeItemKind.SourceDir : TreeItemKind.TestDir,
-            { command: "grails.noAction", title: "No Action" },
-            undefined,
-            fullPath
-          );
-        });
-
-      // Files second
-      const files = entries
-        .filter(entry => entry.isFile() && this.isRelevantFile(entry.name))
-        .map(entry => {
-          const fullPath = path.join(resourcePath, entry.name);
-          return new GrailsTreeItem(
-            entry.name,
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+      if (entries.length === 0) {
+        return [
+          new GrailsTreeItem(
+            "(Empty)",
             TreeItemCollapsibleState.None,
-            kind === TreeItemKind.SourceDir ? TreeItemKind.SrcFile : TreeItemKind.TestFile,
-            { command: "vscode.open", title: "Open", arguments: [Uri.file(fullPath)] },
-            undefined,
-            fullPath
-          );
-        });
+            TreeItemKind.Empty,
+            NO_ACTION_COMMAND,
+            project,
+            dirPath
+          ),
+        ];
+      }
 
-      items.push(...directories, ...files);
-    } catch (error) {
-      console.warn(`Error reading directory ${resourcePath}:`, error);
+      const dirs: GrailsTreeItem[] = [];
+      const files: GrailsTreeItem[] = [];
+
+      entries.sort((a, b) => a.name.localeCompare(b.name));
+
+      for (const entry of entries) {
+        const fullPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+          dirs.push(createDirItem(fullPath, entry.name));
+        } else if (entry.isFile()) {
+          const item = createFileItem(fullPath, entry.name);
+          if (item) {
+            files.push(item);
+          }
+        }
+      }
+
+      const all = [...dirs, ...files];
+      if (all.length === 0) {
+        return [
+          new GrailsTreeItem(
+            "(Empty)",
+            TreeItemCollapsibleState.None,
+            TreeItemKind.Empty,
+            NO_ACTION_COMMAND,
+            project,
+            dirPath
+          ),
+        ];
+      }
+
+      if (all.length > GrailsTreeExplorer.MAX_DIRECTORY_ITEMS) {
+        const truncated = all.slice(0, GrailsTreeExplorer.MAX_DIRECTORY_ITEMS);
+        truncated.push(
+          new GrailsTreeItem(
+            `... and ${all.length - GrailsTreeExplorer.MAX_DIRECTORY_ITEMS} more items`,
+            TreeItemCollapsibleState.None,
+            TreeItemKind.Empty,
+            NO_ACTION_COMMAND,
+            project,
+            dirPath
+          )
+        );
+        return truncated;
+      }
+
+      return all;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return [
+        new GrailsTreeItem(
+          `Error: ${message}`,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.Error,
+          NO_ACTION_COMMAND,
+          project,
+          dirPath
+        ),
+      ];
+    }
+  }
+
+  private compactPackagePath(startPath: string): { finalPath: string; displayLabel: string } {
+    let currentPath = startPath;
+    const parts: string[] = [path.basename(startPath)];
+
+    while (true) {
+      try {
+        const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+        const dirs = entries.filter(e => e.isDirectory());
+        const files = entries.filter(e => e.isFile());
+
+        if (dirs.length === 1 && files.length === 0) {
+          currentPath = path.join(currentPath, dirs[0].name);
+          parts.push(dirs[0].name);
+        } else {
+          break;
+        }
+      } catch {
+        break;
+      }
     }
 
-    return items;
+    return {
+      finalPath: currentPath,
+      displayLabel: parts.join("."),
+    };
+  }
+
+  private matchesArtifactType(fileName: string, artifactType?: ArtifactType): boolean {
+    if (!artifactType) {
+      return fileName.endsWith(".groovy") || fileName.endsWith(".java");
+    }
+    switch (artifactType) {
+      case ArtifactType.Controller:
+        return fileName.endsWith("Controller.groovy") || fileName.endsWith("Controller.java");
+      case ArtifactType.Service:
+        return fileName.endsWith("Service.groovy") || fileName.endsWith("Service.java");
+      case ArtifactType.Domain:
+        return (
+          fileName.endsWith(".groovy") &&
+          !fileName.includes("Test") &&
+          !fileName.includes("Spec")
+        );
+      case ArtifactType.TagLib:
+        return fileName.endsWith("TagLib.groovy") || fileName.endsWith("TagLib.java");
+      case ArtifactType.Interceptor:
+        return fileName.endsWith("Interceptor.groovy") || fileName.endsWith("Interceptor.java");
+      case ArtifactType.Job:
+        return fileName.endsWith("Job.groovy") || fileName.endsWith("Job.java");
+      case ArtifactType.Command:
+        return fileName.endsWith("Command.groovy") || fileName.endsWith("Command.java");
+      case ArtifactType.Utils:
+        return fileName.endsWith(".groovy") || fileName.endsWith(".java");
+      default:
+        return fileName.endsWith(".groovy") || fileName.endsWith(".java");
+    }
   }
 
   private isRelevantFile(fileName: string): boolean {
-    const relevantExtensions = [".groovy", ".java", ".gsp", ".yml", ".yaml", ".properties", ".xml"];
+    const relevantExtensions = [
+      ".groovy",
+      ".java",
+      ".gsp",
+      ".yml",
+      ".yaml",
+      ".properties",
+      ".xml",
+      ".json",
+      ".sql",
+      ".txt",
+    ];
     return relevantExtensions.some(ext => fileName.endsWith(ext));
   }
 
-  private getViewFiles(resourcePath?: string): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-
-    if (!resourcePath || !this.folderExists(resourcePath)) {
-      return items;
+  private getArtifactFolderChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
     }
 
-    try {
-      const entries = fs
-        .readdirSync(resourcePath, { withFileTypes: true })
-        .filter(entry => entry.isFile() && entry.name.endsWith(".gsp"))
-        .map(entry => {
-          const fullPath = path.join(resourcePath, entry.name);
-          return new GrailsTreeItem(
-            entry.name,
-            TreeItemCollapsibleState.None,
-            TreeItemKind.ViewFile,
-            { command: "vscode.open", title: "Open", arguments: [Uri.file(fullPath)] },
-            undefined,
-            fullPath
-          );
-        });
-
-      items.push(...entries);
-    } catch (error) {
-      console.warn(`Error reading view files in ${resourcePath}:`, error);
-    }
-
-    return items;
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      fullPath => {
+        const compacted = this.compactPackagePath(fullPath);
+        return new GrailsTreeItem(
+          compacted.displayLabel,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.GrailsArtifactFolders,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          compacted.finalPath,
+          element.artifactType
+        );
+      },
+      (fullPath, name) => {
+        if (!this.matchesArtifactType(name, element.artifactType)) {
+          return null;
+        }
+        return new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.ArtifactFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath,
+          element.artifactType
+        );
+      }
+    );
   }
 
-  private getAssetFiles(resourcePath?: string): GrailsTreeItem[] {
-    const items: GrailsTreeItem[] = [];
-
-    if (!resourcePath || !this.folderExists(resourcePath)) {
-      return items;
+  private getConfFolderChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
     }
 
-    try {
-      const entries = fs.readdirSync(resourcePath, { withFileTypes: true });
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.ConfFolder,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          fullPath
+        ),
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.ConfFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        )
+    );
+  }
 
-      // Subdirectories first
-      const directories = entries
-        .filter(entry => entry.isDirectory())
-        .map(entry => {
-          const fullPath = path.join(resourcePath, entry.name);
-          const fileCount = this.getRecursiveFileCount(fullPath, [
-            ".css",
-            ".scss",
-            ".js",
-            ".coffee",
-            ".png",
-            ".jpg",
-            ".gif",
-          ]);
-          return new GrailsTreeItem(
-            `${entry.name} (${fileCount})`,
-            TreeItemCollapsibleState.Collapsed,
-            TreeItemKind.AssetsFolder,
-            { command: "grails.noAction", title: "No Action" },
-            undefined,
-            fullPath
-          );
-        });
-
-      // Asset files
-      const assetExtensions = [
-        ".css",
-        ".scss",
-        ".sass",
-        ".js",
-        ".coffee",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".gif",
-        ".svg",
-      ];
-      const files = entries
-        .filter(entry => entry.isFile() && assetExtensions.some(ext => entry.name.endsWith(ext)))
-        .map(entry => {
-          const fullPath = path.join(resourcePath, entry.name);
-          return new GrailsTreeItem(
-            entry.name,
-            TreeItemCollapsibleState.None,
-            TreeItemKind.AssetFile,
-            { command: "vscode.open", title: "Open", arguments: [Uri.file(fullPath)] },
-            undefined,
-            fullPath
-          );
-        });
-
-      items.push(...directories, ...files);
-    } catch (error) {
-      console.warn(`Error reading asset files in ${resourcePath}:`, error);
+  private getI18nFolderChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
     }
 
-    return items;
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.ConfFolder,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          fullPath
+        ),
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.ConfFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        )
+    );
+  }
+
+  private getViewFolderChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
+    }
+
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.ViewsFolder,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          fullPath
+        ),
+      (fullPath, name) => {
+        if (!name.endsWith(".gsp") && !name.endsWith(".html") && !name.endsWith(".gsp.tpl")) {
+          return null;
+        }
+        return new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.ViewFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        );
+      }
+    );
+  }
+
+  private getAssetFolderChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
+    }
+
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.AssetsFolder,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          fullPath
+        ),
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.AssetFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        )
+    );
+  }
+
+  private getSourceDirChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
+    }
+
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      fullPath => {
+        const compacted = this.compactPackagePath(fullPath);
+        return new GrailsTreeItem(
+          compacted.displayLabel,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.SourceDir,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          compacted.finalPath
+        );
+      },
+      (fullPath, name) => {
+        if (!this.isRelevantFile(name)) {
+          return null;
+        }
+        return new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.SrcFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        );
+      }
+    );
+  }
+
+  private getTestDirChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
+    }
+
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      fullPath => {
+        const compacted = this.compactPackagePath(fullPath);
+        return new GrailsTreeItem(
+          compacted.displayLabel,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.TestDir,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          compacted.finalPath
+        );
+      },
+      (fullPath, name) => {
+        if (!this.isRelevantFile(name)) {
+          return null;
+        }
+        return new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.TestFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        );
+      }
+    );
+  }
+
+  private getGeneratedDirChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
+    }
+
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      fullPath => {
+        const compacted = this.compactPackagePath(fullPath);
+        return new GrailsTreeItem(
+          compacted.displayLabel,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.GeneratedDir,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          compacted.finalPath
+        );
+      },
+      (fullPath, name) =>
+        new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.GeneratedFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        )
+    );
+  }
+
+  private getInitFolderChildren(element: GrailsTreeItem): GrailsTreeItem[] {
+    const dirPath = element.resourcePath;
+    if (!dirPath || !element.projectInfo) {
+      return [];
+    }
+
+    return this.readDirectorySafely(
+      dirPath,
+      element.projectInfo,
+      fullPath => {
+        const compacted = this.compactPackagePath(fullPath);
+        return new GrailsTreeItem(
+          compacted.displayLabel,
+          TreeItemCollapsibleState.Collapsed,
+          TreeItemKind.SourceDir,
+          NO_ACTION_COMMAND,
+          element.projectInfo,
+          compacted.finalPath
+        );
+      },
+      (fullPath, name) => {
+        if (!this.isRelevantFile(name)) {
+          return null;
+        }
+        return new GrailsTreeItem(
+          name,
+          TreeItemCollapsibleState.None,
+          TreeItemKind.SrcFile,
+          { command: "vscode.open", title: "Open File", arguments: [Uri.file(fullPath)] },
+          element.projectInfo,
+          fullPath
+        );
+      }
+    );
   }
 
   private getDependencyList(project: ProjectInfo, category: string): GrailsTreeItem[] {
@@ -1287,92 +1358,6 @@ export class GrailsTreeExplorer implements TreeDataProvider<GrailsTreeItem> {
     this.disposables.push(projectsDiscoveredSub, projectChangedSub, treeRefreshSub);
   }
 
-  private getPackagesWithFiles(
-    basePath: string,
-    currentPath: string,
-    kind: TreeItemKind,
-    fileKind: TreeItemKind,
-    project: ProjectInfo,
-    artifactType?: ArtifactType
-  ): GrailsTreeItem[] {
-    if (!this.folderExists(currentPath)) {
-      return [];
-    }
-
-    try {
-      const entries = fs.readdirSync(currentPath, { withFileTypes: true });
-      const dirs = entries.filter(e => e.isDirectory());
-
-      // Flatten single-child directories into a combined package name
-      const packageNameParts: string[] = [];
-      let nodePath = currentPath;
-      let nodeEntries = dirs;
-
-      while (
-        nodeEntries.length === 1 && // Exactly one subdirectory
-        fs
-          .readdirSync(path.join(nodePath, nodeEntries[0].name), { withFileTypes: true })
-          .filter(e => e.isDirectory()).length <= 1 // and the child has at most one subdirectory
-      ) {
-        packageNameParts.push(nodeEntries[0].name);
-        nodePath = path.join(nodePath, nodeEntries[0].name);
-        const nextEntries = fs.readdirSync(nodePath, { withFileTypes: true });
-        nodeEntries = nextEntries.filter(e => e.isDirectory());
-      }
-
-      const relativePackageName = path.relative(basePath, nodePath).split(path.sep).join(".");
-      const packageLabel = relativePackageName ? `{${relativePackageName}}` : "<root>";
-
-      const fileChildren = fs
-        .readdirSync(nodePath, { withFileTypes: true })
-        .filter(f => f.isFile())
-        .map(
-          file =>
-            new GrailsTreeItem(
-              file.name,
-              TreeItemCollapsibleState.None,
-              fileKind,
-              {
-                command: "vscode.open",
-                title: "Open",
-                arguments: [Uri.file(path.join(nodePath, file.name))],
-              },
-              project,
-              path.join(nodePath, file.name),
-              artifactType
-            )
-        );
-
-      const subPackageChildren = nodeEntries.flatMap(dir =>
-        this.getPackagesWithFiles(
-          basePath,
-          path.join(nodePath, dir.name),
-          kind,
-          fileKind,
-          project,
-          artifactType
-        )
-      );
-
-      const allChildren = [...fileChildren, ...subPackageChildren];
-
-      return [
-        new GrailsTreeItem(
-          packageLabel,
-          TreeItemCollapsibleState.Collapsed,
-          kind,
-          { command: "grails.noAction", title: "No Action" },
-          project,
-          nodePath,
-          artifactType,
-          allChildren.length > 0 ? allChildren : undefined
-        ),
-      ];
-    } catch (error) {
-      console.warn(`Error reading and flattening packages in ${currentPath}:`, error);
-      return [];
-    }
-  }
 
   public dispose(): void {
     void this._onDidChangeTreeData?.dispose();

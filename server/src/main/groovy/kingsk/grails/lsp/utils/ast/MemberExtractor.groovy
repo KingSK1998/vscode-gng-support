@@ -107,9 +107,50 @@ class MemberExtractor {
                 break
         }
 
-        // Handle special case for java.lang.Object
+        // Handle special case for java.lang.Object or resolved/bytecode classes
+        Class<?> resolvedClass = null
+        if (classNode.isResolved()) {
+            try {
+                resolvedClass = classNode.typeClass
+            } catch (Throwable ignored) {
+            }
+        }
+        if (resolvedClass == null && classNode.name) {
+            try {
+                ClassNode cn = ClassHelper.make(classNode.name)
+                if (cn.isResolved()) {
+                    resolvedClass = cn.typeClass
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        if (resolvedClass == null && classNode.name) {
+            try {
+                resolvedClass = Class.forName(classNode.name)
+            } catch (Throwable ignored) {
+            }
+            if (resolvedClass == null && !classNode.name.contains('.')) {
+                try {
+                    resolvedClass = Class.forName("java.lang." + classNode.name)
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+
         if (classNode.name == GrailsUtils.TYPE_OBJECT && classNode.getClass() != null) {
             collectFromJavaLangClass(statics, items, type)
+        } else if (resolvedClass != null && (type == CollectionType.ALL || type == CollectionType.METHODS_ONLY)) {
+            try {
+                for (Method method : resolvedClass.getMethods()) {
+                    if (Modifier.isStatic(method.modifiers) == statics && Modifier.isPublic(method.modifiers)) {
+                        MethodNode mn = convertMethodToMethodNode(method)
+                        if (!items.methods.any { it.name == mn.name && it.parameters?.length == mn.parameters?.length }) {
+                            items.methods << mn
+                        }
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
         }
 
         // Traverse hierarchy

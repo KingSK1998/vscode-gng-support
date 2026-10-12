@@ -168,6 +168,9 @@ class SourceSetCompilationState {
             compilationUnit.clearErrors()
             try {
                 compilationUnit.compile(phase)
+                if (compilationUnit.errorCollector?.hasErrors()) {
+                    recoverFromSyntaxErrors(phase, null)
+                }
             } catch (CompilationFailedException e) {
                 log.debug("[COMPILER:${sourceSetName}] Compilation failed: ${e.message}")
                 recoverFromSyntaxErrors(phase, e)
@@ -184,7 +187,7 @@ class SourceSetCompilationState {
     }
 
     private void recoverFromSyntaxErrors(int phase, Exception e) {
-        log.debug("[RECOVERY] Entering recoverFromSyntaxErrors, phase={}, exception={}: {}", phase, e.class.name, e.message)
+        log.debug("[RECOVERY] Entering recoverFromSyntaxErrors, phase={}, exception={}: {}", phase, e?.class?.name, e?.message)
         if (compilationUnit == null) return
         MultipleCompilationErrorsException mce = (e instanceof MultipleCompilationErrorsException) ?
             (MultipleCompilationErrorsException) e :
@@ -200,7 +203,7 @@ class SourceSetCompilationState {
         List<SourceUnit> units = compilationUnit.sourceUnits ?: []
 
         units.each { SourceUnit sourceUnit ->
-            if (sourceUnit.AST != null) return
+            if (sourceUnit.AST != null && !sourceUnit.errorCollector?.hasErrors()) return
 
             String original = sourceUnit.source.reader.text
             int lineNumber = -1

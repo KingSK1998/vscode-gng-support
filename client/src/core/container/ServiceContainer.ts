@@ -1,4 +1,7 @@
 import type { ExtensionContext } from "vscode";
+import { DashboardService } from "../../features/dashboard/DashboardService";
+import { DependencyGraphService } from "../../features/dependency-graph/DependencyGraphService";
+import { GormSqlPreviewService } from "../../features/gorm-sql-preview/GormSqlPreviewService";
 import { AnalysisToolService } from "../../services/analysis/AnalysisToolService";
 import { ArtifactService } from "../../services/artifacts/ArtifactService";
 import { DebugService } from "../../services/debugging/DebugService";
@@ -6,6 +9,7 @@ import { ErrorService } from "../../services/errors/ErrorService";
 import { GradleService } from "../../services/gradle/GradleService";
 import { LogStreamingService } from "../../services/gradle/LogStreamingService";
 import { LanguageServerManager } from "../../services/languageServer/LanguageServerManager";
+import { RefactorRenameService } from "../../services/refactor/RefactorRenameService";
 import { GrailsTestService } from "../../services/testing/GrailsTestService";
 import { ConfigurationService } from "../../services/workspace/ConfigurationService";
 import { ProjectService } from "../../services/workspace/ProjectService";
@@ -157,6 +161,26 @@ export class ServiceContainer {
     return this.getLazyService("AnalysisToolService");
   }
 
+  /** Get DashboardService - lazy initialized */
+  get dashboardService(): DashboardService {
+    return this.getLazyService("DashboardService");
+  }
+
+  /** Get DependencyGraphService - lazy initialized */
+  get dependencyGraphService(): DependencyGraphService {
+    return this.getLazyService("DependencyGraphService");
+  }
+
+  /** Get GormSqlPreviewService - lazy initialized */
+  get gormSqlPreviewService(): GormSqlPreviewService {
+    return this.getLazyService("GormSqlPreviewService");
+  }
+
+  /** Get RefactorRenameService - lazy initialized */
+  get refactorRenameService(): RefactorRenameService {
+    return this.getLazyService("RefactorRenameService");
+  }
+
   /* ================= GENERIC ACCESS (for special cases) ============ */
 
   get<K extends ServiceName>(name: K): ServiceRegistry[K] {
@@ -224,7 +248,12 @@ export class ServiceContainer {
 
     this._lazyInitializers.set(
       "GradleService",
-      () => new GradleService(this._services.StatusBarService!, this._services.ErrorService!)
+      () =>
+        new GradleService(
+          this._services.StatusBarService!,
+          this._services.ErrorService!,
+          this._services.ConfigurationService
+        )
     );
 
     this._lazyInitializers.set(
@@ -266,7 +295,12 @@ export class ServiceContainer {
 
     this._lazyInitializers.set(
       "DebugService",
-      () => new DebugService(this.gradleService, this._services.ErrorService!)
+      () =>
+        new DebugService(
+          this.gradleService,
+          this._services.ErrorService!,
+          this._services.ConfigurationService
+        )
     );
 
     this._lazyInitializers.set(
@@ -276,7 +310,8 @@ export class ServiceContainer {
           this.context,
           this._services.ErrorService!,
           this.languageServerManager,
-          this.projectService
+          this.projectService,
+          this.gradleService
         )
     );
 
@@ -287,6 +322,48 @@ export class ServiceContainer {
           this.languageServerManager,
           this._services.ErrorService!,
           this._services.ConfigurationService!
+        )
+    );
+
+    this._lazyInitializers.set(
+      "RefactorRenameService",
+      () =>
+        new RefactorRenameService(
+          this.languageServerManager,
+          this._services.ErrorService!
+        )
+    );
+
+    this._lazyInitializers.set(
+      "DashboardService",
+      () =>
+        new DashboardService(
+          this.context,
+          this._services.ErrorService!,
+          this.projectService,
+          this.gradleService,
+          this.languageServerManager
+        )
+    );
+
+    this._lazyInitializers.set(
+      "DependencyGraphService",
+      () =>
+        new DependencyGraphService(
+          this.context,
+          this._services.ErrorService!,
+          this.languageServerManager,
+          this.projectService
+        )
+    );
+
+    this._lazyInitializers.set(
+      "GormSqlPreviewService",
+      () =>
+        new GormSqlPreviewService(
+          this.context,
+          this._services.ErrorService!,
+          this.languageServerManager
         )
     );
   }

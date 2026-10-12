@@ -22,6 +22,39 @@ export class GrailsTreeItem extends TreeItem {
     this.setupIcon();
     this.tooltip = this.buildTooltip();
     this.children = children;
+
+    // Stable scoped identity for tree item state preservation (INV-DISC-001, INV-OWN-004)
+    const scopePrefix = this.projectInfo?.rootPath ?? "global";
+    this.id = `${scopePrefix}::${this.kind}::${this.resourcePath ?? this.label}`;
+
+    // Accessibility label for keyboard and screen-reader navigation
+    this.accessibilityInformation = {
+      label: this.buildAccessibilityLabel(),
+    };
+
+    // Label generated and read-only locations distinctly
+    if (
+      this.kind === TreeItemKind.GeneratedRoot ||
+      this.kind === TreeItemKind.GeneratedDir ||
+      this.kind === TreeItemKind.GeneratedFile
+    ) {
+      this.description = "(generated, read-only)";
+    }
+  }
+
+  private buildAccessibilityLabel(): string {
+    const isGenerated =
+      this.kind === TreeItemKind.GeneratedRoot ||
+      this.kind === TreeItemKind.GeneratedDir ||
+      this.kind === TreeItemKind.GeneratedFile;
+    const parts = [this.label, this.kind];
+    if (isGenerated) {
+      parts.push("generated read-only");
+    }
+    if (this.projectInfo?.name) {
+      parts.push(`project ${this.projectInfo.name}`);
+    }
+    return parts.join(", ");
   }
 
   private buildContextValue(): string {

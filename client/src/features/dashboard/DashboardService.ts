@@ -1,7 +1,11 @@
 import * as path from "path";
 import * as vscode from "vscode";
 import type { ErrorService } from "../../services/errors/ErrorService";
-import { createWebviewStateManager } from "../../services/webview/WebviewStateManager";
+import type { GradleService } from "../../services/gradle/GradleService";
+import type { LanguageServerManager } from "../../services/languageServer/LanguageServerManager";
+import { createWebviewStateManager, getNonce } from "../../services/webview/WebviewStateManager";
+import type { ProjectService } from "../../services/workspace/ProjectService";
+import type { ProjectInfo } from "../models/modelTypes";
 
 interface DashboardState {
   dashboardType?: "user" | "developer";
@@ -13,8 +17,11 @@ export class DashboardService implements vscode.Disposable {
   private stateManager: ReturnType<typeof createWebviewStateManager<DashboardState>>;
 
   constructor(
-    private context: vscode.ExtensionContext,
-    private errorService: ErrorService
+    private readonly context: vscode.ExtensionContext,
+    private readonly errorService: ErrorService,
+    private readonly projectService: ProjectService,
+    private readonly gradleService: GradleService,
+    private readonly languageServerManager: LanguageServerManager
   ) {
     this.stateManager = createWebviewStateManager<DashboardState>(context, "dashboard");
   }
@@ -29,7 +36,7 @@ export class DashboardService implements vscode.Disposable {
     void this.stateManager.clearState();
   }
 
-  public openDashboard(type: "user" | "developer") {
+  public openDashboard(_type: "user" | "developer" = "user"): void {
     const column = vscode.window.activeTextEditor
       ? vscode.window.activeTextEditor.viewColumn
       : undefined;
@@ -39,19 +46,17 @@ export class DashboardService implements vscode.Disposable {
       return;
     }
 
-    const savedState = this.stateManager.getState();
-    const effectiveType = savedState?.dashboardType ?? type;
-
     this.currentPanel = vscode.window.createWebviewPanel(
       "grailsDashboard",
-      effectiveType === "user" ? "Grails Project Dashboard" : "Extension Developer Center",
+      "Grails Project Dashboard",
       column ?? vscode.ViewColumn.One,
       this.stateManager.getWebviewOptions([
         vscode.Uri.file(path.join(this.context.extensionPath, "resources")),
       ])
     );
 
-    this.currentPanel.webview.html = this.getHtmlContent(effectiveType);
+    const projects = this.projectService.getProjects();
+    this.currentPanel.webview.html = this.getHtmlContent(projects);
 
     this.currentPanel.onDidDispose(
       () => {
@@ -61,136 +66,250 @@ export class DashboardService implements vscode.Disposable {
       this.context.subscriptions
     );
 
-    interface DashboardMessage {
-      command: string;
-      flag?: string;
-      value?: boolean;
-      task?: string;
-    }
-
-    this.currentPanel.webview.onDidReceiveMessage((message: DashboardMessage) => {
-      switch (message.command) {
-        case "toggleFeature":
-          vscode.window.showInformationMessage(
-            `Flag ${String(message.flag)} toggled to ${String(message.value)}`
-          );
-          break;
-        case "runTask":
-          if (message.task) {
-            void vscode.commands.executeCommand(message.task);
-          }
-          break;
+    this.currentPanel.webview.onDidReceiveMessage((message: { command: string; task?: string }) => {
+      if (message.command === "discoverProjects") {
+        void vscode.commands.executeCommand("grails.refreshTree");
+      } else if (message.command === "runTask" && message.task) {
+        const allowedTasks = new Set([
+          "grails.refreshTree",
+          "grails.runApp",
+          "grails.debugApp",
+          "grails.testApp",
+          "grails.compileProject",
+        ]);
+        if (allowedTasks.has(message.task)) {
+          void vscode.commands.executeCommand(message.task);
+        }
       }
     });
   }
 
-  private getHtmlContent(type: "user" | "developer"): string {
-    const isDev = type === "developer";
+  public getHtmlContent(projects?: readonly ProjectInfo[]): string {
+    const actualProjects = projects ?? this.projectService?.getProjects() ?? [];
+    const nonce = getNonce();
+    const lspRunning = this.languageServerManager?.isRunning ?? false;
+    const gradleReady = this.gradleService?.isReady ?? false;
+
+    const cardsHtml =
+      actualProjects.length === 0
+        ? `
+        <div class="empty-state" role="status" aria-live="polite">
+          <h2>No Grails Projects Detected</h2>
+          <p>The workspace does not currently have any recognized Grails projects.</p>
+          <button id="discoverBtn" class="action-btn">Discover Projects</button>
+        </div>`
+        : actualProjects
+            .map(
+              (p) => `
+        <div class="card" tabindex="0" role="article" aria-label="Project ${this.escapeHtml(p.name)}">
+          <h3>${this.escapeHtml(p.name)}</h3>
+          <div class="path">${this.escapeHtml(p.rootPath)}</div>
+          <div class="meta-row">
+            <span class="label">Type:</span> <strong>${this.escapeHtml(p.type)}</strong>
+          </div>
+          <div class="meta-row">
+            <span class="label">Dependencies:</span> <strong>${p.dependencies?.length ?? 0} resolved</strong>
+          </div>
+        </div>`
+            )
+            .join("\n");
+
+    const lspStatusLabel = lspRunning ? "LSP Running" : "Language Server Disconnected";
 
     return `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Dashboard</title>
-            <style>
-                body { font-family: sans-serif; padding: 20px; color: var(--vscode-foreground); }
-                .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-                .card { background: var(--vscode-editor-background); border: 1px solid var(--vscode-widget-border); padding: 15px; border-radius: 8px; }
-                .card h3 { margin-top: 0; color: var(--vscode-button-background); }
-                .stat { font-size: 2em; font-weight: bold; }
-                .label { font-size: 0.8em; opacity: 0.8; }
-                button { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; }
-                button:hover { background: var(--vscode-button-hoverBackground); }
-                .status { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
-                .status.ok { background: #28a745; color: white; }
-                .status.warn { background: #ffc107; color: black; }
-                .flag-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 10px; background: var(--vscode-welcomePage-tileBackground); border-radius: 4px; }
-            </style>
-        </head>
-        <body>
-            <h1>${isDev ? "🛡️ Developer Maintenance Center" : "📊 Grails Project Insights"}</h1>
-            <p>${isDev ? "Manage internal extension flags before VSIX packaging." : "Real-time project metrics and health indicators."}</p>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; font-src https:;">
+  <title>Grails Dashboard</title>
+  <style nonce="${nonce}">
+    :root {
+      --gap: 16px;
+      --card-padding: 16px;
+    }
+    body {
+      font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      padding: 20px;
+      color: var(--vscode-foreground);
+      background-color: var(--vscode-editor-background);
+      margin: 0;
+    }
+    h1 {
+      margin-top: 0;
+      color: var(--vscode-foreground);
+    }
+    .origins-bar {
+      margin-bottom: var(--gap);
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .origin-pill {
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .status-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: var(--gap);
+    }
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-badge.ok {
+      background-color: var(--vscode-testing-iconPassed, #28a745);
+      color: #ffffff;
+    }
+    .status-badge.warn {
+      background-color: var(--vscode-testing-iconFailed, #d73a49);
+      color: #ffffff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--gap);
+      margin-bottom: var(--gap);
+    }
+    .card {
+      background: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-widget-border, #454545);
+      padding: var(--card-padding);
+      border-radius: 6px;
+      transition: outline 0.1s ease;
+    }
+    .card:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      color: var(--vscode-button-background);
+    }
+    .path {
+      font-size: 12px;
+      color: var(--vscode-descriptionForeground);
+      word-break: break-all;
+      margin-bottom: 12px;
+    }
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .empty-state {
+      padding: 30px;
+      border: 1px dashed var(--vscode-widget-border, #454545);
+      border-radius: 6px;
+      text-align: center;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: var(--gap);
+      flex-wrap: wrap;
+    }
+    .action-btn {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      padding: 8px 14px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .action-btn:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .action-btn:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: 2px;
+    }
+    @media (forced-colors: active) {
+      .card {
+        border: 1px solid CanvasText;
+      }
+      .card:focus-visible {
+        outline: 2px solid Highlight;
+      }
+      .action-btn {
+        border: 1px solid ButtonText;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Grails Project Dashboard</h1>
+  <div class="origins-bar">
+    <span class="origin-pill">Origin: Workspace Project Discovery</span>
+    <span class="origin-pill">Origin: Subsystem Lifecycle State</span>
+  </div>
 
-            ${isDev ? this.getDevContent() : this.getUserContent()}
+  <div class="status-bar">
+    <span class="status-badge ${gradleReady ? "ok" : "warn"}">${gradleReady ? "Gradle Ready" : "Gradle Not Ready"}</span>
+    <span class="status-badge ${lspRunning ? "ok" : "warn"}">${lspStatusLabel}</span>
+  </div>
 
-            <script>
-                const vscode = acquireVsCodeApi();
-                function runTask(task) {
-                    vscode.postMessage({ command: 'runTask', task: task });
-                }
-                function toggleFlag(flag, checkbox) {
-                    vscode.postMessage({ command: 'toggleFeature', flag: flag, value: checkbox.checked });
-                }
-            </script>
-        </body>
-        </html>`;
+  <div class="grid">
+    ${cardsHtml}
+  </div>
+
+  <div class="actions">
+    <button id="runAppBtn" class="action-btn">Run App</button>
+    <button id="testAppBtn" class="action-btn">Test App</button>
+    <button id="refreshProjectsBtn" class="action-btn">Refresh Projects</button>
+  </div>
+
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+
+    const discoverBtn = document.getElementById('discoverBtn');
+    if (discoverBtn) {
+      discoverBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'discoverProjects' });
+      });
+    }
+
+    const runAppBtn = document.getElementById('runAppBtn');
+    if (runAppBtn) {
+      runAppBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'runTask', task: 'grails.runApp' });
+      });
+    }
+
+    const testAppBtn = document.getElementById('testAppBtn');
+    if (testAppBtn) {
+      testAppBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'runTask', task: 'grails.testApp' });
+      });
+    }
+
+    const refreshProjectsBtn = document.getElementById('refreshProjectsBtn');
+    if (refreshProjectsBtn) {
+      refreshProjectsBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'runTask', task: 'grails.refreshTree' });
+      });
+    }
+  </script>
+</body>
+</html>`;
   }
 
-  private getUserContent(): string {
-    return `
-        <div class="grid">
-            <div class="card">
-                <h3>Artifacts</h3>
-                <div class="stat">24</div>
-                <div class="label">Controllers, Services, Domains</div>
-            </div>
-            <div class="card">
-                <h3>Vitals</h3>
-                <div class="flag-row">
-                    <span>Server Port</span>
-                    <strong>8080</strong>
-                </div>
-                <div class="flag-row">
-                    <span>Hot Reload</span>
-                    <span class="status ok">ACTIVE</span>
-                </div>
-            </div>
-            <div class="card">
-                <h3>Testing</h3>
-                <div class="stat">94%</div>
-                <div class="label">Code Coverage (Target: 80%)</div>
-                <br/>
-                <button onclick="runTask('grails.testApp')">Run Full Suite</button>
-            </div>
-            <div class="card">
-                <h3>Performance</h3>
-                <div class="label">LSP Indexing Time</div>
-                <div class="stat">1.2s</div>
-            </div>
-        </div>
-        <h3>Active Configuration</h3>
-        <div class="card">
-            <p><strong>Environment:</strong> Development</p>
-            <p><strong>Datasource:</strong> H2 (In-memory)</p>
-            <button onclick="runTask('grails.compileProject')">Recompile AST</button>
-        </div>
-        `;
-  }
-
-  private getDevContent(): string {
-    return `
-        <div class="card">
-            <h3>Release Management</h3>
-            <div class="flag-row">
-                <span>Experimental AI Core</span>
-                <input type="checkbox" checked onchange="toggleFlag('aiCore', this)">
-            </div>
-            <div class="flag-row">
-                <span>Incremental AST Visitor</span>
-                <input type="checkbox" checked onchange="toggleFlag('astVisitor', this)">
-            </div>
-            <div class="flag-row">
-                <span>Logging Verbosity</span>
-                <input type="checkbox" onchange="toggleFlag('verbose', this)">
-            </div>
-            <div class="flag-row">
-                <span>GSP LSP V2</span>
-                <input type="checkbox" onchange="toggleFlag('gspV2', this)">
-            </div>
-            <br/>
-            <button onclick="alert('Preparing VSIX bundle...')">Package Extension</button>
-        </div>
-        `;
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 }

@@ -200,7 +200,7 @@ class SourceSetCompilationState {
         }
         boolean patchedAny = false
 
-        List<SourceUnit> units = compilationUnit.sourceUnits ?: []
+        List<SourceUnit> units = compilationUnit.sourceUnits ? new ArrayList<SourceUnit>(compilationUnit.sourceUnits) : []
 
         units.each { SourceUnit sourceUnit ->
             if (sourceUnit.AST != null && !sourceUnit.errorCollector?.hasErrors()) return
@@ -217,41 +217,61 @@ class SourceSetCompilationState {
             }
 
             for (Object err : errs) {
+                SyntaxException se = null
                 if (err instanceof SyntaxErrorMessage) {
-                    SyntaxException se = ((SyntaxErrorMessage) err).cause
-                    if (se != null) {
-                        lineNumber = Math.max(se.line - 1, 0)
-                        break
-                    }
+                    se = ((SyntaxErrorMessage) err).cause
                 } else if (err instanceof SyntaxException) {
-                    SyntaxException se = (SyntaxException) err
+                    se = (SyntaxException) err
+                }
+                if (se != null) {
+                    if (se.sourceLocator != null && sourceUnit.name != null) {
+                        String normLoc = TextFile.normalizePath(se.sourceLocator)
+                        String normUnit = TextFile.normalizePath(sourceUnit.name)
+                        if (normLoc != normUnit && !se.sourceLocator.endsWith(sourceUnit.name) && !sourceUnit.name.endsWith(se.sourceLocator)) {
+                            continue
+                        }
+                    }
                     lineNumber = Math.max(se.line - 1, 0)
                     break
                 }
             }
 
             List<String> lines = original.readLines()
+            boolean canPatch = false
             if (lineNumber >= 0 && lineNumber < lines.size()) {
-                if (!lines[lineNumber].trim().endsWith(".")) {
+                if (lines[lineNumber].trim().endsWith(".") || GrailsUtils.PATTERN_CONSTRUCTOR_CALL.matcher(lines[lineNumber]).matches()) {
+                    canPatch = true
+                } else {
                     for (int i = lineNumber - 1; i >= Math.max(0, lineNumber - 3); i--) {
-                        if (lines[i].trim().endsWith(".")) {
+                        if (lines[i].trim().endsWith(".") || GrailsUtils.PATTERN_CONSTRUCTOR_CALL.matcher(lines[i]).matches()) {
                             lineNumber = i
+                            canPatch = true
                             break
                         }
                     }
                 }
+            }
 
-                if (lineNumber < lines.size()) {
-                    String patchText = GrailsUtils.PATTERN_CONSTRUCTOR_CALL.matcher(lines[lineNumber]).matches() ?
-                        GrailsUtils.DUMMY_COMPLETION_CONSTRUCTOR : GrailsUtils.DUMMY_COMPLETION_IDENTIFIER
-
-                    lines[lineNumber] += patchText
-                    String patchedSource = lines.join("\n")
-
-                    compilationUnit.removeSourceUnit(sourceUnit)
-                    compilationUnit.addSource(sourceUnit.name, patchedSource)
-                    patchedAny = true
+            if (!canPatch) {
+                for (int i = 0; i < lines.size(); i++) {
+                    if (lines[i].trim().endsWith(".") || GrailsUtils.PATTERN_CONSTRUCTOR_CALL.matcher(lines[i]).matches()) {
+                        lineNumber = i
+                        canPatch = true
+                        break
+                    }
                 }
+            }
+
+            if (canPatch && lineNumber >= 0 && lineNumber < lines.size()) {
+                String patchText = GrailsUtils.PATTERN_CONSTRUCTOR_CALL.matcher(lines[lineNumber]).matches() ?
+                    GrailsUtils.DUMMY_COMPLETION_CONSTRUCTOR : GrailsUtils.DUMMY_COMPLETION_IDENTIFIER
+
+                lines[lineNumber] += patchText
+                String patchedSource = lines.join("\n")
+
+                compilationUnit.removeSourceUnit(sourceUnit)
+                compilationUnit.addSource(sourceUnit.name, patchedSource)
+                patchedAny = true
             }
         }
 

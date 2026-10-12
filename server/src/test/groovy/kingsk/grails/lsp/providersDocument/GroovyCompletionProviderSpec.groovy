@@ -33,6 +33,7 @@ class GroovyCompletionProviderSpec extends CompletionTestSpec {
 		items.size() > 0
 		def completion = assertContainsItem(items, "charAt")
 		completion.kind == CompletionItemKind.Method
+		closeTextDocument(uri)
 		
 		// --- member variable ---
 		
@@ -50,6 +51,7 @@ class GroovyCompletionProviderSpec extends CompletionTestSpec {
 		then: "Should provide String methods for member variable"
 		items.size() > 0
 		assertContainsItem(items, "charAt").kind == CompletionItemKind.Method
+		closeTextDocument(uri)
 		
 		// --- array element ---
 		
@@ -67,6 +69,7 @@ class GroovyCompletionProviderSpec extends CompletionTestSpec {
 		then: "Should provide String methods for array element"
 		items.size() > 0
 		assertContainsItem(items, "charAt").kind == CompletionItemKind.Method
+		closeTextDocument(uri)
 	}
 	
 	def "should provide this and class member access completions"() {

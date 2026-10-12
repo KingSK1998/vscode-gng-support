@@ -164,7 +164,8 @@ jobs:
 
   publish:
     needs: [build, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Disabled by user policy: do not auto-publish
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -217,6 +218,6 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Release v${{ github.run_number }}
-          files: "*.vsix"
           files: "**/*.vsix"
           generate_release_notes: true
+

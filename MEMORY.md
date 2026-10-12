@@ -748,3 +748,9 @@
   - Fixed `SourceSetCompilationState.recoverFromSyntaxErrors` to filter syntax errors by source locator, verify candidate lines end with `.` before patching, and fall back to full-source scanning for trailing dots.
   - Added clean `closeTextDocument(uri)` teardown in `GroovyCompletionProviderSpec` across dot-notation assertion scenarios.
   - Documented failure mode `COMP-003` in `docs/failure-modes.md`.
+- **Cross-project invalidation loop & runner freeze**:
+  - Identified 30-minute GitHub Actions timeout root cause: in `PublicationAndLifecycleSpec` (`R1-04/4`), mutually dependent projects caused an infinite async recompilation storm because `ProjectContextImpl.recompileAsync` was recursively invoking `WorkspaceManager.propagateInvalidation(this)` without termination or deduplication.
+  - Guarded `recompileAsync` with `AtomicBoolean isRecompilingAsync` and removed circular downstream invalidation invocation.
+  - Updated `docs/invariants.md` state ownership row for `ProjectContextImpl`.
+  - Added 10-minute test execution timeout in `server/build.gradle`.
+  - Documented failure mode `DP-002` in `docs/failure-modes.md`.

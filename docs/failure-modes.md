@@ -263,6 +263,16 @@
 - **Detected by:** CI build on Ubuntu runner.
 - **Date:** 2026-10-12.
 
+### DP-002: Recursive Recompilation Ping-Pong in Mutually Dependent Projects
+- **Status:** Resolved (verified in R5-05)
+- **Bug:** Concurrent dependency invalidation between mutually dependent projects caused an infinite async recompilation storm and thread exhaustion on multi-project workspaces.
+- **Invariant violated:** `INV-STATE-009`, `INV-OWN-008`
+- **Root cause:** `ProjectContextImpl.recompileAsync` invoked `grailsService.workspaceManager?.propagateInvalidation(this)` upon completion, which triggered downstream recompilation of the upstream project, creating an unbounded recursive loop without atomic deduplication.
+- **Fix:** Guarded `recompileAsync` with `AtomicBoolean isRecompilingAsync` to prevent duplicate concurrent runs, and removed circular `propagateInvalidation(this)` call from `recompileAsync` (transitive downstream invalidation is already handled by BFS in `WorkspaceManager.propagateInvalidation`). Added 10-minute test execution timeout in `build.gradle`.
+- **Test:** `PublicationAndLifecycleSpec` (`R1-04/4: cross-project invalidation and concurrent compilation avoid deadlocks with deterministic lock ordering`).
+- **Detected by:** GitHub Actions CI job timeout.
+- **Date:** 2026-10-12.
+
 ---
 
 ## Failure Test Matrix — Use Before Every Feature

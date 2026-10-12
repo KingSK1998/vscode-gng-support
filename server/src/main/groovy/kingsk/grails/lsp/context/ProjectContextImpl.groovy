@@ -59,6 +59,7 @@ class ProjectContextImpl implements ProjectContext, CompilationContext {
     private volatile boolean dependencyDirty = false
     private final AtomicReference<String> lastInvalidationOrigin = new AtomicReference<>(null)
     private final AtomicLong lastInvalidationRevision = new AtomicLong(0L)
+    private final AtomicBoolean isRecompilingAsync = new AtomicBoolean(false)
 
     // Gradle Sync Lifecycle & Freshness (R1-03)
     private final AtomicReference<CompletableFuture<GrailsProject>> currentGradleSyncFuture = new AtomicReference<>(null)
@@ -802,6 +803,10 @@ class ProjectContextImpl implements ProjectContext, CompilationContext {
 
     @Override
     void recompileAsync() {
+        if (!isRecompilingAsync.compareAndSet(false, true)) {
+            log.debug("[ProjectContext] Async recompilation already queued/running for {}", this.@project?.name)
+            return
+        }
         CompletableFuture.runAsync({ ->
             try {
                 if (this.@state.get() == ProjectState.DISPOSING) return
@@ -829,11 +834,12 @@ class ProjectContextImpl implements ProjectContext, CompilationContext {
                         commitSnapshotLocked()
                         grailsService.clearCrossFileCaches()
                     }
-                    grailsService.workspaceManager?.propagateInvalidation(this)
                     setDependencyDirty(false)
                 }
             } catch (Exception e) {
                 log.error("[ProjectContext] Async recompilation failed for project ${this.@project.name}", e)
+            } finally {
+                isRecompilingAsync.set(false)
             }
         } as Runnable)
     }

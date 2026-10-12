@@ -756,3 +756,24 @@
   - Documented failure mode `DP-002` in `docs/failure-modes.md`.
 - **Workflow artifact staging**:
   - Added `copy-server` step in `.github/workflows/ci.yml` immediately following `npm ci` so that `client/server/grails-language-server-current-all.jar` is available during `test:client` (`package.test.js` asset verification) and `test:smoke` (stdio server launch).
+
+## CI Test Stabilization & Pipeline Green Verification (2026-10-12)
+
+- **Memory Envelope & Test Suite Interference (`PERF-001`)**:
+  - In `PerformanceBaselineSpec.groovy`, the lifecycle settling assertion failed in CI because 400 preceding tests in the shared Gradle worker JVM pushed baseline heap to ~300 MiB, exceeding the hardcoded `< 256 MiB` envelope even though lifecycle transitions leaked < 0.2 MiB (1.01x ratio).
+  - Fixed by adding 3-pass GC settling before/after lifecycle cycles, asserting bounded heap growth `(settledHeap - initialHeap) < 64 MiB` and suite-wide envelope `< 512 MiB`, with `heapGrowthRatio <= 1.5` in scorecard comparisons.
+  - Documented in `docs/failure-modes.md` (`PERF-001`).
+- **Superseded Sync Future Await (`SYNC-001`)**:
+  - In `GradleSyncSpec.groovy`, the superseded sync test intermittently timed out under constrained 2-core CI runners because the fixed 5000ms poll loop exited before the background worker callback completed.
+  - Fixed by explicitly awaiting `secondFuture.get(10, TimeUnit.SECONDS)` and extending the poll timeout bound to 10s.
+  - Documented in `docs/failure-modes.md` (`SYNC-001`).
+- **Pipeline Status Verified Across Both Branches**:
+  - **`develop`** (Run `38284156444`):
+    - `security` (CodeQL): ✅ PASSED (1m 30s)
+    - `build (17)` (server tests, JAR copy, client build, client tests, stdio smoke test, VSIX packaging, artifact upload): ✅ PASSED (3m 47s)
+    - `publish`: ⚪ SKIPPED (as mandated)
+  - **`main`** (Run `38284168852`):
+    - `security` (CodeQL): ✅ PASSED (1m 14s)
+    - `build (17)` (server tests, JAR copy, client build, client tests, stdio smoke test, VSIX packaging, artifact upload): ✅ PASSED (3m 50s)
+    - `publish`: ⚪ SKIPPED (as mandated)
+  - Synchronized both branches cleanly at commit `be55e01`. Strict constraint **"do not publish"** preserved.

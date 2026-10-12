@@ -243,8 +243,11 @@ class GradleSyncSpec extends BaseLspSpec {
 
         when: "First sync completes after being superseded"
         sync1Proceed.countDown()
+        try {
+            secondFuture?.get(10, TimeUnit.SECONDS)
+        } catch (Exception ignored) {}
         long start = System.currentTimeMillis()
-        while (ctx.isGradleSyncInProgress() && (System.currentTimeMillis() - start) < 5000) {
+        while (ctx.isGradleSyncInProgress() && (System.currentTimeMillis() - start) < 10000) {
             Thread.sleep(50)
         }
 

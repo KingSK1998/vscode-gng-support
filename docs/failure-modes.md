@@ -273,6 +273,22 @@
 - **Detected by:** GitHub Actions CI job timeout.
 - **Date:** 2026-10-12.
 
+### `PERF-001`: Memory Envelope Exceeded Under Full-Suite JVM Execution
+- **Symptoms:** `PerformanceBaselineSpec > R1-05/1 & R1-05/2` failed with `settledHeap < 256L * 1024L * 1024L` (`323609936 false 268435456`) when executed within full 410-test suite in CI.
+- **Root cause:** Initial heap in Gradle worker JVM accumulates state from prior 400 tests (~300 MiB), causing single-pass GC to measure background suite allocations rather than lifecycle leak. Absolute threshold (<256 MiB) assumed standalone JVM execution.
+- **Fix:** Switched to 3-pass GC settling and asserted bounded growth delta (`(settledHeap - initialHeap) < 64 MiB`) alongside relaxed suite-wide envelope (`< 512 MiB`).
+- **Test:** `PerformanceBaselineSpec` (`R1-05/1 & R1-05/2`).
+- **Detected by:** CI build job failure.
+- **Date:** 2026-10-12.
+
+### `SYNC-001`: Superseded Sync Test Premature Poll Timeout on Constrained CI Runner
+- **Symptoms:** `GradleSyncSpec > R1-03/1: superseded sync cancels in-flight work and applies newest configuration` intermittently failed with `ctx.project.name == "NewSyncResult"` on 2-core runners.
+- **Root cause:** Polling loop with fixed 5000ms timeout timed out before background worker thread finished callback for `secondFuture` under heavy runner load.
+- **Fix:** Explicitly awaited `secondFuture.get(10, TimeUnit.SECONDS)` and increased poll timeout bound to 10s.
+- **Test:** `GradleSyncSpec` (`R1-03/1`).
+- **Detected by:** CI build job failure on `main`.
+- **Date:** 2026-10-12.
+
 ---
 
 ## Failure Test Matrix — Use Before Every Feature
